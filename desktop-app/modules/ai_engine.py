@@ -8,9 +8,19 @@ import os
 import json
 import base64
 import re
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import requests
+
+# Try to use Anthropic SDK if available, fallback to requests
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_SDK_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_SDK_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class AIEngine:
@@ -36,6 +46,16 @@ class AIEngine:
         self.temperature = ai_config.get("temperature", 0.7)
         
         self.templates_dir = Path(__file__).parent.parent / "templates"
+        
+        # Initialize Anthropic client if SDK is available
+        if ANTHROPIC_SDK_AVAILABLE and self.api_key:
+            try:
+                self.client = Anthropic(api_key=self.api_key)
+            except Exception as e:
+                logger.warning(f"Failed to initialize Anthropic SDK: {e}")
+                self.client = None
+        else:
+            self.client = None
     
     def _clean_json_response(self, response: str) -> str:
         """Clean markdown formatting from JSON response."""
@@ -120,12 +140,6 @@ class AIEngine:
         if not self.api_key:
             raise ValueError("Anthropic API key not configured")
         
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        }
-        
         # Build message content
         content = []
         
@@ -148,6 +162,31 @@ class AIEngine:
             "type": "text",
             "text": prompt
         })
+        
+        # Use SDK if available, otherwise fallback to requests
+        if self.client and ANTHROPIC_SDK_AVAILABLE:
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    system=system_prompt or "",
+                    messages=[
+                        {"role": "user", "content": content}
+                    ]
+                )
+                return response.content[0].text
+            except Exception as e:
+                logger.error(f"Anthropic SDK error: {e}")
+                # Fallback to requests
+                pass
+        
+        # Fallback to direct API calls
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+        }
         
         payload = {
             "model": self.model,
@@ -173,11 +212,11 @@ class AIEngine:
                 result = response.json()
                 return result.get("content", [{}])[0].get("text", "")
             else:
-                print(f"API error: {response.status_code} - {response.text}")
+                logger.error(f"API error: {response.status_code} - {response.text}")
                 return None
                 
         except requests.exceptions.RequestException as e:
-            print(f"Request error: {e}")
+            logger.error(f"Request error: {e}")
             return None
     
     def generate_description(
@@ -251,10 +290,16 @@ Respond ONLY with a valid JSON object, no markdown formatting."""
                 cleaned = self._clean_json_response(response)
                 return json.loads(cleaned)
             except json.JSONDecodeError as e:
-                print(f"JSON parse error: {e}")
-                print(f"Raw response: {response[:500]}...")
-                return {"description": response, "error": "JSON parsing failed", "raw": cleaned}
+                logger.error(f"JSON parse error: {e}")
+                logger.debug(f"Raw response: {response[:500]}...")
+                # Try to extract description from raw text if JSON parsing fails
+                return {
+                    "description": response[:1000] if len(response) > 1000 else response,
+                    "error": "JSON parsing failed",
+                    "raw": cleaned
+                }
         
+        logger.warning("AI description generation returned no response")
         return None
     
     def generate_valuation(
@@ -307,10 +352,11 @@ Respond ONLY with a valid JSON object."""
                 cleaned = self._clean_json_response(response)
                 return json.loads(cleaned)
             except json.JSONDecodeError as e:
-                print(f"JSON parse error: {e}")
-                print(f"Raw response: {response[:500]}...")
+                logger.error(f"JSON parse error: {e}")
+                logger.debug(f"Raw response: {response[:500]}...")
                 return {"notes": response, "error": "JSON parsing failed", "raw": cleaned}
         
+        logger.warning("AI valuation generation returned no response")
         return None
     
     def analyze_images(
@@ -348,10 +394,11 @@ Respond ONLY with a valid JSON object."""
                 cleaned = self._clean_json_response(response)
                 return json.loads(cleaned)
             except json.JSONDecodeError as e:
-                print(f"JSON parse error: {e}")
-                print(f"Raw response: {response[:500]}...")
+                logger.error(f"JSON parse error: {e}")
+                logger.debug(f"Raw response: {response[:500]}...")
                 return {"raw_response": response, "error": "JSON parsing failed", "raw": cleaned}
         
+        logger.warning("AI image analysis returned no response")
         return None
     
     def generate_seo_keywords(
@@ -394,8 +441,8 @@ Return ONLY a JSON array of keywords, no other text."""
                 if isinstance(keywords, list):
                     return keywords[:count]
             except json.JSONDecodeError as e:
-                print(f"JSON parse error: {e}")
-                print(f"Raw response: {response[:500]}...")
+                logger.error(f"JSON parse error: {e}")
+                logger.debug(f"Raw response: {response[:500]}...")
                 pass
         
         return []

@@ -15,9 +15,11 @@ import numpy as np
 try:
     from rembg import remove as rembg_remove
     REMBG_AVAILABLE = True
-except ImportError:
+    REMBG_ERROR = None
+except ImportError as e:
     REMBG_AVAILABLE = False
-    # Warning will be shown only when background removal is actually used
+    REMBG_ERROR = str(e)
+    # Warning will be logged only when background removal is actually used
 
 
 class BackgroundRemover:
@@ -83,13 +85,15 @@ class BackgroundRemover:
             if REMBG_AVAILABLE:
                 result = self._remove_with_rembg(img, strength)
             else:
-                # Show warning only when actually using fallback
-                import warnings
-                warnings.warn(
-                    "rembg not installed. Using fallback background removal method. "
-                    "For best results, install rembg: pip install rembg --break-system-packages "
-                    "(Note: Requires Visual Studio Build Tools on Windows)",
-                    UserWarning
+                # Log warning instead of showing to user (less intrusive)
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "rembg not installed. Using fallback background removal method.\n"
+                    "For best results, install rembg:\n"
+                    "  CPU version: pip install rembg\n"
+                    "  GPU version (NVIDIA): pip install rembg[gpu]\n"
+                    "Note: First run will download the AI model (~170MB)"
                 )
                 result = self._remove_fallback(img, strength)
             
@@ -217,6 +221,7 @@ class BackgroundRemover:
         self,
         folder_path: str,
         output_folder: Optional[str] = None,
+        progress_callback: Optional[callable] = None,
         **kwargs
     ) -> dict:
         """
@@ -225,6 +230,7 @@ class BackgroundRemover:
         Args:
             folder_path: Input folder path
             output_folder: Output folder (creates 'processed' subfolder if not provided)
+            progress_callback: Optional callback(current, total, filename) for progress updates
             **kwargs: Options passed to remove_background
             
         Returns:
@@ -239,8 +245,8 @@ class BackgroundRemover:
         
         output_dir.mkdir(exist_ok=True)
         
-        image_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
-        images = [f for f in folder.iterdir() if f.suffix.lower() in image_extensions]
+        image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif', '.bmp'}
+        images = sorted([f for f in folder.iterdir() if f.suffix.lower() in image_extensions])
         
         results = {
             "total": len(images),
@@ -250,7 +256,27 @@ class BackgroundRemover:
             "errors": []
         }
         
-        for img_path in images:
+        if not images:
+            return results
+        
+        # Pre-warm rembg on first image if available (downloads model on first use)
+        if REMBG_AVAILABLE and images:
+            try:
+                # Quick test to trigger model download
+                test_img = Image.open(images[0])
+                if test_img.mode != "RGBA":
+                    test_img = test_img.convert("RGBA")
+                _ = rembg_remove(test_img)
+                test_img.close()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"rembg pre-warm failed: {e}")
+        
+        for i, img_path in enumerate(images, 1):
+            if progress_callback:
+                progress_callback(i, len(images), img_path.name)
+            
             try:
                 output_path = output_dir / f"{img_path.stem}-bgremoved.webp"
                 self.remove_background(str(img_path), str(output_path), **kwargs)
@@ -292,15 +318,59 @@ class BackgroundRemover:
                 return self._remove_fallback(img, strength)
 
 
-def install_rembg():
-    """Helper function to install rembg."""
+def install_rembg(use_gpu: bool = False):
+    """
+    Helper function to install rembg.
+    
+    Args:
+        use_gpu: If True, install GPU version (requires NVIDIA GPU and CUDA)
+    """
     import subprocess
     import sys
     
-    print("Installing rembg for AI background removal...")
-    subprocess.check_call([
-        sys.executable, "-m", "pip", "install",
-        "rembg", "--break-system-packages"
-    ])
-    print("rembg installed successfully!")
-    print("Please restart the application to use AI background removal.")
+    package = "rembg[gpu]" if use_gpu else "rembg"
+    gpu_note = " (GPU version - requires NVIDIA GPU and CUDA)" if use_gpu else ""
+    
+    print(f"Installing rembg{gpu_note} for AI background removal...")
+    print("Note: First run will download the AI model (~170MB)")
+    
+    try:
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install",
+            package
+        ])
+        print("rembg installed successfully!")
+        print("Please restart the application to use AI background removal.")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Installation failed: {e}")
+        if use_gpu:
+            print("\nGPU installation failed. Try CPU version instead:")
+            print(f"  {sys.executable} -m pip install rembg")
+        return False
+
+
+def check_rembg_installation() -> dict:
+    """
+    Check rembg installation status and provide helpful information.
+    
+    Returns:
+        Dictionary with installation status and recommendations
+    """
+    status = {
+        "installed": REMBG_AVAILABLE,
+        "error": REMBG_ERROR,
+        "recommendation": None
+    }
+    
+    if not REMBG_AVAILABLE:
+        status["recommendation"] = (
+            "rembg is not installed. For best background removal results:\n"
+            "  CPU version: pip install rembg\n"
+            "  GPU version (NVIDIA): pip install rembg[gpu]\n"
+            "Note: First run will download the AI model (~170MB)"
+        )
+    else:
+        status["recommendation"] = "rembg is installed and ready to use!"
+    
+    return status

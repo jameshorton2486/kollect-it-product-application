@@ -12,6 +12,7 @@ Modules:
     - product_publisher: Website API integration
     - background_remover: AI background removal
     - crop_tool: Interactive image cropping
+    - config_validator: Configuration validation and error checking
 """
 
 from .image_processor import ImageProcessor
@@ -21,6 +22,7 @@ from .ai_engine import AIEngine
 from .product_publisher import ProductPublisher
 from .background_remover import BackgroundRemover
 from .crop_tool import CropDialog
+from .config_validator import ConfigValidator
 
 __all__ = [
     'ImageProcessor',
@@ -29,7 +31,8 @@ __all__ = [
     'AIEngine',
     'ProductPublisher',
     'BackgroundRemover',
-    'CropDialog'
+    'CropDialog',
+    'ConfigValidator'
 ]
 
 __version__ = '1.0.0'

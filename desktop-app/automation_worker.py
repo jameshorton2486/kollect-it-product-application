@@ -88,21 +88,11 @@ class AutomationWorker:
         """Initialize all processing modules."""
         self.logger.info("Initializing modules...")
         
-        # Image processor
-        img_config = self.config.get('image_processing', {})
-        self.image_processor = ImageProcessor(
-            max_dimension=img_config.get('max_dimension', 2400),
-            webp_quality=img_config.get('webp_quality', 88),
-            strip_exif=img_config.get('strip_exif', True)
-        )
+        # Image processor - pass full config
+        self.image_processor = ImageProcessor(self.config)
         
-        # ImageKit uploader
-        ik_config = self.config.get('imagekit', {})
-        self.imagekit = ImageKitUploader(
-            public_key=ik_config.get('public_key', ''),
-            private_key=ik_config.get('private_key', ''),
-            url_endpoint=ik_config.get('url_endpoint', '')
-        )
+        # ImageKit uploader - pass full config
+        self.imagekit = ImageKitUploader(self.config)
         
         # SKU generator
         sku_state_path = os.path.join(
@@ -110,30 +100,14 @@ class AutomationWorker:
         )
         self.sku_generator = SKUGenerator(sku_state_path)
         
-        # AI engine
-        ai_config = self.config.get('ai', {})
-        templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
-        self.ai_engine = AIEngine(
-            api_key=ai_config.get('api_key', ''),
-            model=ai_config.get('model', 'claude-sonnet-4-20250514'),
-            templates_dir=templates_dir
-        )
+        # AI engine - pass full config
+        self.ai_engine = AIEngine(self.config)
         
-        # Product publisher
-        api_config = self.config.get('api', {})
-        self.publisher = ProductPublisher(
-            api_key=api_config.get('SERVICE_API_KEY', ''),
-            base_url=api_config.get('production_url', 'https://kollect-it.com'),
-            use_local=api_config.get('use_local', False),
-            local_url=api_config.get('local_url', 'http://localhost:3000')
-        )
+        # Product publisher - pass full config
+        self.publisher = ProductPublisher(self.config)
         
-        # Background remover
-        bg_config = self.config.get('image_processing', {}).get('background_removal', {})
-        self.bg_remover = BackgroundRemover(
-            default_strength=bg_config.get('default_strength', 0.9),
-            default_bg_color=bg_config.get('default_bg_color', '#FFFFFF')
-        )
+        # Background remover - pass full config
+        self.bg_remover = BackgroundRemover(self.config)
         
         self.logger.info("All modules initialized successfully")
         
@@ -268,13 +242,16 @@ class AutomationWorker:
             
             # Step 4: Process images (resize, convert to WebP)
             processed_images = []
+            options = {
+                "max_dimension": self.config.get("image_processing", {}).get("max_dimension", 2400),
+                "quality": self.config.get("image_processing", {}).get("webp_quality", 88),
+                "strip_exif": self.config.get("image_processing", {}).get("strip_exif", True),
+                "output_format": "webp"
+            }
+            
             for i, img_path in enumerate(image_files, 1):
                 try:
-                    processed = self.image_processor.process_image(
-                        img_path,
-                        output_dir=processed_dir,
-                        new_name=f"{i:02d}-{sku}"
-                    )
+                    processed = self.image_processor.process_image(str(img_path), options)
                     processed_images.append(processed['output_path'])
                     self.logger.info(f"    Processed: {os.path.basename(img_path)}")
                 except Exception as e:
@@ -299,18 +276,22 @@ class AutomationWorker:
             # Step 6: Upload to ImageKit
             self.logger.info("  Uploading to ImageKit...")
             uploaded_images = []
+            folder = f"products/{category}/{sku}"
             for img_path in processed_images:
                 try:
                     upload_result = self.imagekit.upload(
                         img_path,
-                        folder=f"/products/{category}/{sku}"
+                        folder=folder
                     )
-                    uploaded_images.append({
-                        'url': upload_result['url'],
-                        'thumbnailUrl': upload_result.get('thumbnailUrl', ''),
-                        'fileId': upload_result['fileId']
-                    })
-                    self.logger.info(f"    Uploaded: {os.path.basename(img_path)}")
+                    if upload_result and upload_result.get('success'):
+                        uploaded_images.append({
+                            'url': upload_result['url'],
+                            'thumbnailUrl': upload_result.get('thumbnailUrl', ''),
+                            'fileId': upload_result.get('fileId', '')
+                        })
+                        self.logger.info(f"    Uploaded: {os.path.basename(img_path)}")
+                    else:
+                        raise Exception("Upload returned no result")
                 except Exception as e:
                     self.logger.warning(f"    Upload failed for {img_path}: {e}")
                     
@@ -319,27 +300,38 @@ class AutomationWorker:
                 
             # Step 7: Generate AI description
             self.logger.info("  Generating AI description...")
-            ai_result = self.ai_engine.generate_description(
-                images=processed_images[:5],  # Max 5 images for AI
-                category=category,
-                folder_name=folder_name
-            )
+            product_data = {
+                "title": folder_name,
+                "category": category,
+                "images": processed_images[:5]  # Max 5 images for AI
+            }
+            ai_result = self.ai_engine.generate_description(product_data)
             
             # Step 8: Build product payload
-            product_data = {
-                'title': ai_result.get('title', folder_name),
+            if not ai_result:
+                ai_result = {}
+            
+            product_payload = {
+                'title': ai_result.get('suggested_title') or ai_result.get('title') or folder_name,
                 'sku': sku,
                 'category': category,
                 'description': ai_result.get('description', ''),
-                'htmlDescription': ai_result.get('html_description', ''),
-                'price': ai_result.get('recommended_price', 0),
+                'descriptionHtml': ai_result.get('description_html', f"<p>{ai_result.get('description', '')}</p>"),
+                'price': ai_result.get('recommended', 0) or ai_result.get('recommended_price', 0),
                 'condition': ai_result.get('condition', 'Good'),
                 'conditionDetails': ai_result.get('condition_notes', ''),
                 'era': ai_result.get('era', ''),
                 'origin': ai_result.get('origin', ''),
                 'materials': ai_result.get('materials', []),
-                'dimensions': ai_result.get('dimensions', ''),
-                'images': [img['url'] for img in uploaded_images],
+                'dimensions': ai_result.get('dimensions_estimate', ''),
+                'images': [
+                    {
+                        'url': img['url'],
+                        'alt': f"{ai_result.get('suggested_title', folder_name)} - Image {i+1}",
+                        'order': i
+                    }
+                    for i, img in enumerate(uploaded_images)
+                ],
                 'seoTitle': ai_result.get('seo_title', ''),
                 'seoDescription': ai_result.get('seo_description', ''),
                 'seoKeywords': ai_result.get('keywords', [])
@@ -351,15 +343,16 @@ class AutomationWorker:
                 result['status'] = 'test_complete'
             else:
                 self.logger.info("  Publishing to website...")
-                publish_result = self.publisher.publish(product_data)
+                publish_result = self.publisher.publish(product_payload)
                 
-                if publish_result['success']:
-                    result['product_id'] = publish_result.get('productId')
-                    result['product_url'] = publish_result.get('productUrl')
+                if publish_result.get('success'):
+                    result['product_id'] = publish_result.get('product', {}).get('id')
+                    result['product_url'] = publish_result.get('product', {}).get('url')
                     result['status'] = 'published'
                     self.logger.info(f"  Published! ID: {result['product_id']}")
                 else:
-                    raise ValueError(f"Publish failed: {publish_result.get('error')}")
+                    error_msg = publish_result.get('error') or publish_result.get('message', 'Unknown error')
+                    raise ValueError(f"Publish failed: {error_msg}")
                     
             # Step 10: Save product JSON for records
             json_path = os.path.join(folder_path, f"{sku}_product.json")
@@ -367,7 +360,7 @@ class AutomationWorker:
                 json.dump({
                     'sku': sku,
                     'category': category,
-                    'product_data': product_data,
+                    'product_data': product_payload,
                     'ai_result': ai_result,
                     'uploaded_images': uploaded_images,
                     'processed_at': datetime.now().isoformat(),

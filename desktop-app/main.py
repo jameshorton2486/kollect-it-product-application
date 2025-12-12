@@ -1428,9 +1428,67 @@ class KollectItApp(QMainWindow):
                 "Enable 'AI Background Removal' in Settings tab first."
             )
             return
+        
+        # Check rembg installation
+        from modules.background_remover import REMBG_AVAILABLE, check_rembg_installation
+        status = check_rembg_installation()
+        
+        if not REMBG_AVAILABLE:
+            reply = QMessageBox.question(
+                self, "rembg Not Installed",
+                f"{status['recommendation']}\n\n"
+                "Would you like to continue with fallback method?\n"
+                "(Results may be lower quality)",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
+        
+        # Process all images with progress
+        self.log(f"Removing backgrounds from {len(self.current_images)} images...", "info")
+        self.progress_bar.setValue(0)
+        self.status_label.setText("Removing backgrounds...")
+        
+        from modules.background_remover import BackgroundRemover
+        remover = BackgroundRemover(self.config)
+        
+        strength = self.bg_strength_slider.value() / 100
+        bg_color = self.config.get("image_processing", {}).get(
+            "background_removal", {}
+        ).get("background_color", "#FFFFFF")
+        
+        def progress_callback(current, total, filename):
+            progress = int((current / total) * 100)
+            self.progress_bar.setValue(progress)
+            self.status_label.setText(f"Processing {current}/{total}: {filename}")
+            QApplication.processEvents()
+        
+        try:
+            results = remover.batch_remove(
+                self.current_folder,
+                progress_callback=progress_callback,
+                strength=strength,
+                bg_color=bg_color
+            )
             
-        for img_path in self.current_images:
-            self.remove_image_background(img_path)
+            self.progress_bar.setValue(100)
+            self.status_label.setText("Background removal complete!")
+            
+            success_count = results["processed"]
+            failed_count = results["failed"]
+            
+            self.log(f"Background removal: {success_count} succeeded, {failed_count} failed", "success")
+            
+            if failed_count > 0:
+                self.log(f"Errors: {len(results['errors'])} images failed", "warning")
+            
+            # Reload images to show processed versions
+            self.load_images_from_folder(self.current_folder)
+            
+        except Exception as e:
+            self.log(f"Background removal error: {e}", "error")
+            self.status_label.setText("Error removing backgrounds")
             
     def optimize_images(self):
         """Process and optimize all images."""
@@ -1747,10 +1805,144 @@ class KollectItApp(QMainWindow):
         
     def show_settings(self):
         """Show settings dialog."""
-        QMessageBox.information(
-            self, "Settings",
-            "Settings dialog coming soon. Edit config/config.json directly for now."
-        )
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTabWidget, QWidget, QFormLayout, QTextEdit, QCheckBox, QSpinBox, QDoubleSpinBox
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Settings")
+        dialog.setMinimumSize(600, 500)
+        dialog.setStyleSheet(DarkPalette.get_stylesheet())
+        
+        layout = QVBoxLayout(dialog)
+        
+        tabs = QTabWidget()
+        
+        # API Settings Tab
+        api_tab = QWidget()
+        api_layout = QFormLayout(api_tab)
+        api_layout.setSpacing(12)
+        
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setText(self.config.get("api", {}).get("SERVICE_API_KEY", ""))
+        self.api_key_edit.setEchoMode(QLineEdit.Password)
+        api_layout.addRow("Service API Key:", self.api_key_edit)
+        
+        self.prod_url_edit = QLineEdit()
+        self.prod_url_edit.setText(self.config.get("api", {}).get("production_url", "https://kollect-it.com"))
+        api_layout.addRow("Production URL:", self.prod_url_edit)
+        
+        self.use_prod_check = QCheckBox("Use Production API")
+        self.use_prod_check.setChecked(not self.config.get("api", {}).get("use_local", False))
+        api_layout.addRow(self.use_prod_check)
+        
+        tabs.addTab(api_tab, "API")
+        
+        # ImageKit Settings Tab
+        ik_tab = QWidget()
+        ik_layout = QFormLayout(ik_tab)
+        ik_layout.setSpacing(12)
+        
+        self.ik_public_edit = QLineEdit()
+        self.ik_public_edit.setText(self.config.get("imagekit", {}).get("public_key", ""))
+        ik_layout.addRow("Public Key:", self.ik_public_edit)
+        
+        self.ik_private_edit = QLineEdit()
+        self.ik_private_edit.setText(self.config.get("imagekit", {}).get("private_key", ""))
+        self.ik_private_edit.setEchoMode(QLineEdit.Password)
+        ik_layout.addRow("Private Key:", self.ik_private_edit)
+        
+        self.ik_url_edit = QLineEdit()
+        self.ik_url_edit.setText(self.config.get("imagekit", {}).get("url_endpoint", ""))
+        ik_layout.addRow("URL Endpoint:", self.ik_url_edit)
+        
+        tabs.addTab(ik_tab, "ImageKit")
+        
+        # AI Settings Tab
+        ai_tab = QWidget()
+        ai_layout = QFormLayout(ai_tab)
+        ai_layout.setSpacing(12)
+        
+        self.ai_key_edit = QLineEdit()
+        self.ai_key_edit.setText(self.config.get("ai", {}).get("api_key", ""))
+        self.ai_key_edit.setEchoMode(QLineEdit.Password)
+        ai_layout.addRow("Anthropic API Key:", self.ai_key_edit)
+        
+        self.ai_model_edit = QLineEdit()
+        self.ai_model_edit.setText(self.config.get("ai", {}).get("model", "claude-sonnet-4-20250514"))
+        ai_layout.addRow("Model:", self.ai_model_edit)
+        
+        tabs.addTab(ai_tab, "AI")
+        
+        # Image Processing Tab
+        img_tab = QWidget()
+        img_layout = QFormLayout(img_tab)
+        img_layout.setSpacing(12)
+        
+        self.max_dim_spin = QSpinBox()
+        self.max_dim_spin.setRange(800, 5000)
+        self.max_dim_spin.setValue(self.config.get("image_processing", {}).get("max_dimension", 2400))
+        img_layout.addRow("Max Dimension (px):", self.max_dim_spin)
+        
+        self.quality_spin = QSpinBox()
+        self.quality_spin.setRange(50, 100)
+        self.quality_spin.setValue(self.config.get("image_processing", {}).get("webp_quality", 88))
+        img_layout.addRow("WebP Quality:", self.quality_spin)
+        
+        self.strip_exif_check = QCheckBox("Strip EXIF Data")
+        self.strip_exif_check.setChecked(self.config.get("image_processing", {}).get("strip_exif", True))
+        img_layout.addRow(self.strip_exif_check)
+        
+        tabs.addTab(img_tab, "Image Processing")
+        
+        layout.addWidget(tabs)
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(cancel_btn)
+        
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(lambda: self.save_settings_from_dialog(dialog))
+        btn_layout.addWidget(save_btn)
+        
+        layout.addLayout(btn_layout)
+        
+        dialog.exec_()
+    
+    def save_settings_from_dialog(self, dialog):
+        """Save settings from the settings dialog."""
+        # Update config
+        if "api" not in self.config:
+            self.config["api"] = {}
+        if "imagekit" not in self.config:
+            self.config["imagekit"] = {}
+        if "ai" not in self.config:
+            self.config["ai"] = {}
+        if "image_processing" not in self.config:
+            self.config["image_processing"] = {}
+        
+        self.config["api"]["SERVICE_API_KEY"] = self.api_key_edit.text()
+        self.config["api"]["production_url"] = self.prod_url_edit.text()
+        self.config["api"]["use_local"] = not self.use_prod_check.isChecked()
+        
+        self.config["imagekit"]["public_key"] = self.ik_public_edit.text()
+        self.config["imagekit"]["private_key"] = self.ik_private_edit.text()
+        self.config["imagekit"]["url_endpoint"] = self.ik_url_edit.text()
+        
+        self.config["ai"]["api_key"] = self.ai_key_edit.text()
+        self.config["ai"]["model"] = self.ai_model_edit.text()
+        
+        self.config["image_processing"]["max_dimension"] = self.max_dim_spin.value()
+        self.config["image_processing"]["webp_quality"] = self.quality_spin.value()
+        self.config["image_processing"]["strip_exif"] = self.strip_exif_check.isChecked()
+        
+        # Save to file
+        self.save_config()
+        
+        QMessageBox.information(dialog, "Settings Saved", "Settings have been saved successfully.")
+        dialog.accept()
         
     def show_about(self):
         """Show about dialog."""
