@@ -73,7 +73,16 @@
     "temperature": 0.7
   },
   "paths": {
+    "camera_import": "E:/DCIM/100CANON",
+    "archive_folder": "E:/MISC",
+    "products_root": "G:/My Drive/Kollect-It/Products",
     "default_browse": "G:/My Drive/Kollect-It/Products",
+    "category_folders": {
+      "militaria": "MILI",
+      "collectibles": "COLL",
+      "books": "BOOK",
+      "fineart": "ART"
+    },
     "watch_folder": "G:/My Drive/Kollect-It/New Products",
     "processed": "./processed",
     "completed": "G:/My Drive/Kollect-It/Completed",
