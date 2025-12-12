@@ -1325,27 +1325,23 @@ class KollectItApp(QMainWindow):
             uploaded_urls = []
             total = len(self.current_images)
             
-        for i, img_path in enumerate(self.current_images):
-            result = uploader.upload(img_path, folder)
-            if result and result.get("success"):
-                url = result.get("url")
-                if url:
-                    uploaded_urls.append(url)
-                    self.log(f"Uploaded: {Path(img_path).name} → {url}", "info")
+            for i, img_path in enumerate(self.current_images):
+                result = uploader.upload(img_path, folder)
+                if result and result.get("success"):
+                    url = result.get("url")
+                    if url:
+                        uploaded_urls.append(url)
+                        self.log(f"Uploaded: {Path(img_path).name} → {url}", "info")
+                    else:
+                        self.log(f"Upload returned no URL for {Path(img_path).name}", "warning")
                 else:
-                    self.log(f"Upload returned no URL for {Path(img_path).name}", "warning")
-            else:
-                error_msg = result.get("error", "Unknown error") if result else "No response"
-                self.log(f"Failed to upload {Path(img_path).name}: {error_msg}", "error")
-            
-            progress = int(((i + 1) / total) * 100)
-            self.progress_bar.setValue(progress)
-            self.status_label.setText(f"Uploading {i + 1}/{total}...")
-            QApplication.processEvents()  # Keep UI responsive
-                    
+                    error_msg = result.get("error", "Unknown error") if result else "No response"
+                    self.log(f"Failed to upload {Path(img_path).name}: {error_msg}", "error")
+                
                 progress = int(((i + 1) / total) * 100)
                 self.progress_bar.setValue(progress)
                 self.status_label.setText(f"Uploading {i + 1}/{total}...")
+                QApplication.processEvents()  # Keep UI responsive
                 
             self.log(f"Uploaded {len(uploaded_urls)} images to ImageKit", "success")
             self.publish_btn.setEnabled(True)
