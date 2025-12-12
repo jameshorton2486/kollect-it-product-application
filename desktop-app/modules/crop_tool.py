@@ -6,8 +6,6 @@ Interactive image cropping dialog with various features.
 
 from pathlib import Path
 from typing import Optional, Tuple
-import json
-import os
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -147,16 +145,6 @@ class CropLabel(QLabel):
         Returns:
             QRect constrained to aspect ratio if set, otherwise free-form
         """
-        # #region agent log
-        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".venv", ".cursor", "debug.log")
-        try:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"location":"crop_tool.py:_calculate_constrained_rect","message":"Calculating constrained rect","data":{"has_aspect":self.aspect_ratio is not None,"aspect":self.aspect_ratio,"start":{"x":start.x(),"y":start.y()},"end":{"x":end.x(),"y":end.y()}},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"A"}) + "\n")
-        except Exception as e:
-            pass  # Logging failure shouldn't break functionality
-        # #endregion
-        
         if not self.aspect_ratio:
             # Free-form selection
             return QRect(start, end).normalized()
@@ -199,93 +187,119 @@ class CropLabel(QLabel):
         # Ensure rectangle stays within image bounds while maintaining aspect ratio
         img_rect = self.rect()
         
-        # #region agent log
-        try:
-            with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"location":"crop_tool.py:_calculate_constrained_rect","message":"Before bounds check","data":{"rect_before":{"x":new_rect.x(),"y":new_rect.y(),"w":new_rect.width(),"h":new_rect.height()},"img_bounds":{"x":img_rect.x(),"y":img_rect.y(),"w":img_rect.width(),"h":img_rect.height()}},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"C"}) + "\n")
-        except: pass
-        # #endregion
+        # First, ensure the rectangle fits within bounds by adjusting position
+        # Use iterative approach to handle cases where one adjustment affects another
+        max_iterations = 5
+        for _ in range(max_iterations):
+            adjusted = False
+            
+            # Check and fix left boundary
+            if new_rect.left() < img_rect.left():
+                new_rect.moveLeft(img_rect.left())
+                adjusted = True
+            
+            # Check and fix top boundary
+            if new_rect.top() < img_rect.top():
+                new_rect.moveTop(img_rect.top())
+                adjusted = True
+            
+            # Check and fix right boundary
+            if new_rect.right() > img_rect.right():
+                new_rect.moveRight(img_rect.right())
+                adjusted = True
+            
+            # Check and fix bottom boundary
+            if new_rect.bottom() > img_rect.bottom():
+                new_rect.moveBottom(img_rect.bottom())
+                adjusted = True
+            
+            # If no adjustments were needed, we're done
+            if not adjusted:
+                break
         
-        # Adjust position to stay within bounds, maintaining aspect ratio
-        if new_rect.left() < img_rect.left():
-            new_rect.moveLeft(img_rect.left())
-        if new_rect.top() < img_rect.top():
-            new_rect.moveTop(img_rect.top())
-        if new_rect.right() > img_rect.right():
-            new_rect.moveRight(img_rect.right())
-        if new_rect.bottom() > img_rect.bottom():
-            new_rect.moveBottom(img_rect.bottom())
-        
-        # After moving, we may have broken aspect ratio - recalculate if needed
-        # But first check if we're still within bounds with correct aspect ratio
+        # After bounds adjustment, check if we need to fix aspect ratio
         if new_rect.width() > 0 and new_rect.height() > 0:
             current_ratio = new_rect.width() / new_rect.height()
             if abs(current_ratio - target_ratio) > 0.01:  # Allow small floating point errors
                 # Aspect ratio was broken by bounds adjustment - fix it
-                # #region agent log
-                try:
-                    with open(log_path, 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"location":"crop_tool.py:_calculate_constrained_rect","message":"Aspect ratio broken by bounds, fixing","data":{"broken_ratio":round(current_ratio, 3),"target_ratio":round(target_ratio, 3)},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"C"}) + "\n")
-                except: pass
-                # #endregion
+                # Calculate maximum available space from current position
+                max_width = img_rect.right() - new_rect.left()
+                max_height = img_rect.bottom() - new_rect.top()
                 
-                # Recalculate dimensions to maintain aspect ratio
-                # Use the smaller dimension to ensure we fit
-                if new_rect.width() / target_ratio <= new_rect.height():
-                    # Constrain by width
-                    new_height = int(new_rect.width() / target_ratio)
-                    new_rect.setHeight(new_height)
+                # Ensure we have valid space
+                max_width = max(1, max_width)
+                max_height = max(1, max_height)
+                
+                # Calculate dimensions that maintain aspect ratio and fit within available space
+                width_by_height = int(max_height * target_ratio)
+                height_by_width = int(max_width / target_ratio)
+                
+                # Choose the constraint that results in the largest rectangle that fits
+                if width_by_height <= max_width:
+                    # Constrain by height (width fits within available space)
+                    new_width = width_by_height
+                    new_height = max_height
                 else:
-                    # Constrain by height
-                    new_width = int(new_rect.height() * target_ratio)
-                    new_rect.setWidth(new_width)
+                    # Constrain by width (height fits within available space)
+                    new_width = max_width
+                    new_height = height_by_width
                 
-                # Re-check bounds after fixing aspect ratio
-                if new_rect.right() > img_rect.right():
-                    new_rect.moveRight(img_rect.right())
-                    # May need to adjust height again
-                    new_height = int(new_rect.width() / target_ratio)
-                    if new_rect.top() + new_height <= img_rect.bottom():
-                        new_rect.setHeight(new_height)
-                    else:
-                        # Can't fit with this width, constrain by height instead
-                        new_rect.setHeight(img_rect.bottom() - new_rect.top())
-                        new_rect.setWidth(int(new_rect.height() * target_ratio))
-                        new_rect.moveRight(img_rect.right())
+                # Ensure dimensions are valid
+                new_width = max(1, new_width)
+                new_height = max(1, new_height)
                 
-                if new_rect.bottom() > img_rect.bottom():
-                    new_rect.moveBottom(img_rect.bottom())
-                    # May need to adjust width again
-                    new_width = int(new_rect.height() * target_ratio)
-                    if new_rect.left() + new_width <= img_rect.right():
-                        new_rect.setWidth(new_width)
-                    else:
-                        # Can't fit with this height, constrain by width instead
-                        new_rect.setWidth(img_rect.right() - new_rect.left())
-                        new_rect.setHeight(int(new_rect.width() / target_ratio))
-                        new_rect.moveBottom(img_rect.bottom())
+                # Update dimensions while keeping the top-left corner fixed
+                new_rect.setWidth(new_width)
+                new_rect.setHeight(new_height)
         
-        # #region agent log
-        try:
-            with open(log_path, 'a', encoding='utf-8') as f:
-                actual_ratio = new_rect.width() / max(new_rect.height(), 1) if new_rect.height() > 0 else 0
-                f.write(json.dumps({"location":"crop_tool.py:_calculate_constrained_rect","message":"Constrained rect calculated","data":{"final_width":new_rect.width(),"final_height":new_rect.height(),"actual_ratio":round(actual_ratio, 3),"target_ratio":round(target_ratio, 3),"ratio_match":abs(actual_ratio - target_ratio) < 0.01},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"A"}) + "\n")
-        except: pass
-        # #endregion
+        # Final bounds validation - ALWAYS execute to ensure rectangle is within bounds
+        # This handles cases where aspect ratio is preserved but rectangle is still out-of-bounds
+        # Use iterative approach again to handle interdependencies
+        for _ in range(max_iterations):
+            adjusted = False
+            
+            # If rectangle exceeds right boundary, move it left
+            if new_rect.right() > img_rect.right():
+                new_rect.moveLeft(img_rect.right() - new_rect.width())
+                adjusted = True
+            
+            # If rectangle exceeds bottom boundary, move it up
+            if new_rect.bottom() > img_rect.bottom():
+                new_rect.moveTop(img_rect.bottom() - new_rect.height())
+                adjusted = True
+            
+            # If rectangle is now too far left, move it right
+            if new_rect.left() < img_rect.left():
+                new_rect.moveLeft(img_rect.left())
+                adjusted = True
+            
+            # If rectangle is now too far up, move it down
+            if new_rect.top() < img_rect.top():
+                new_rect.moveTop(img_rect.top())
+                adjusted = True
+            
+            # If rectangle is too wide, shrink it (maintaining aspect ratio if needed)
+            if new_rect.width() > img_rect.width():
+                new_rect.setWidth(img_rect.width())
+                if self.aspect_ratio:
+                    new_rect.setHeight(int(new_rect.width() / target_ratio))
+                adjusted = True
+            
+            # If rectangle is too tall, shrink it (maintaining aspect ratio if needed)
+            if new_rect.height() > img_rect.height():
+                new_rect.setHeight(img_rect.height())
+                if self.aspect_ratio:
+                    new_rect.setWidth(int(new_rect.height() * target_ratio))
+                adjusted = True
+            
+            # If no adjustments were needed, we're done
+            if not adjusted:
+                break
         
         return new_rect.normalized()
     
     def set_aspect_ratio(self, aspect_ratio: Optional[Tuple[int, int]]):
         """Set the aspect ratio constraint (None for free-form)."""
-        # #region agent log
-        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".venv", ".cursor", "debug.log")
-        try:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"location":"crop_tool.py:set_aspect_ratio","message":"Setting aspect ratio","data":{"aspect":aspect_ratio},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"B"}) + "\n")
-        except Exception as e:
-            pass  # Logging failure shouldn't break functionality
-        # #endregion
         self.aspect_ratio = aspect_ratio
         # Reset selection when aspect ratio changes
         self.reset_selection()
@@ -430,54 +444,6 @@ class CropDialog(QDialog):
         
         self.crop_size_label = QLabel("Crop: -- x --")
         info_layout.addWidget(self.crop_size_label)
-    
-    def update_crop_size_label(self, rect: QRect):
-        """Update the crop size label with current selection dimensions."""
-        # #region agent log
-        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".venv", ".cursor", "debug.log")
-        try:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"location":"crop_tool.py:update_crop_size_label","message":"Updating crop size label","data":{"rect_valid":rect.isValid(),"rect_empty":rect.isEmpty(),"rect_size":{"w":rect.width(),"h":rect.height()},"aspect_ratio":self.crop_label.aspect_ratio},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"D"}) + "\n")
-        except Exception as e:
-            pass  # Logging failure shouldn't break functionality
-        # #endregion
-        
-        if not rect.isValid() or rect.isEmpty():
-            if self.crop_label.aspect_ratio:
-                w, h = self.crop_label.aspect_ratio
-                self.crop_size_label.setText(f"Crop: {w}:{h} (constrained)")
-            else:
-                self.crop_size_label.setText("Crop: -- x --")
-        else:
-            # Convert to original image coordinates for display
-            orig_rect = QRect(
-                int(rect.x() / self.crop_label.scale_factor),
-                int(rect.y() / self.crop_label.scale_factor),
-                int(rect.width() / self.crop_label.scale_factor),
-                int(rect.height() / self.crop_label.scale_factor)
-            )
-            if self.crop_label.aspect_ratio:
-                w, h = self.crop_label.aspect_ratio
-                # Calculate actual ratio for verification
-                actual_ratio = orig_rect.width() / max(orig_rect.height(), 1)
-                target_ratio = w / h
-                ratio_match = abs(actual_ratio - target_ratio) < 0.01
-                
-                # #region agent log
-                try:
-                    with open(log_path, 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"location":"crop_tool.py:update_crop_size_label","message":"Label updated with aspect ratio","data":{"orig_size":{"w":orig_rect.width(),"h":orig_rect.height()},"target_ratio":round(target_ratio, 3),"actual_ratio":round(actual_ratio, 3),"ratio_match":ratio_match},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"D"}) + "\n")
-                except: pass
-                # #endregion
-                
-                self.crop_size_label.setText(
-                    f"Crop: {orig_rect.width()} x {orig_rect.height()} ({w}:{h})"
-                )
-            else:
-                self.crop_size_label.setText(
-                    f"Crop: {orig_rect.width()} x {orig_rect.height()}"
-                )
         
         info_layout.addStretch()
         
@@ -505,6 +471,32 @@ class CropDialog(QDialog):
         btn_layout.addWidget(self.apply_btn)
         
         layout.addLayout(btn_layout)
+    
+    def update_crop_size_label(self, rect: QRect):
+        """Update the crop size label with current selection dimensions."""
+        if not rect.isValid() or rect.isEmpty():
+            if self.crop_label.aspect_ratio:
+                w, h = self.crop_label.aspect_ratio
+                self.crop_size_label.setText(f"Crop: {w}:{h} (constrained)")
+            else:
+                self.crop_size_label.setText("Crop: -- x --")
+        else:
+            # Convert to original image coordinates for display
+            orig_rect = QRect(
+                int(rect.x() / self.crop_label.scale_factor),
+                int(rect.y() / self.crop_label.scale_factor),
+                int(rect.width() / self.crop_label.scale_factor),
+                int(rect.height() / self.crop_label.scale_factor)
+            )
+            if self.crop_label.aspect_ratio:
+                w, h = self.crop_label.aspect_ratio
+                self.crop_size_label.setText(
+                    f"Crop: {orig_rect.width()} x {orig_rect.height()} ({w}:{h})"
+                )
+            else:
+                self.crop_size_label.setText(
+                    f"Crop: {orig_rect.width()} x {orig_rect.height()}"
+                )
     
     def load_image(self):
         """Load the image for editing."""
@@ -584,16 +576,6 @@ class CropDialog(QDialog):
     
     def on_aspect_changed(self, index: int):
         """Handle aspect ratio selection."""
-        # #region agent log
-        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".venv", ".cursor", "debug.log")
-        try:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"location":"crop_tool.py:on_aspect_changed","message":"Aspect ratio changed","data":{"index":index,"selection":self.aspect_combo.currentText()},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"aspect-impl","hypothesisId":"E"}) + "\n")
-        except Exception as e:
-            pass  # Logging failure shouldn't break functionality
-        # #endregion
-        
         # Parse aspect ratio from selection
         aspect_map = {
             0: None,  # Free
