@@ -1,0 +1,122 @@
+{
+  "category": "militaria",
+  "display_name": "Military & Militaria",
+  "description_structure": {
+    "sections": [
+      {
+        "name": "overview",
+        "prompt": "Provide a compelling 2-3 sentence overview that captures the historical significance and collector appeal of this military item.",
+        "required": true
+      },
+      {
+        "name": "historical_context",
+        "prompt": "Describe the historical period, conflict, and military context in which this item was used or produced.",
+        "required": true
+      },
+      {
+        "name": "physical_description",
+        "prompt": "Detail the physical characteristics including materials, construction, markings, and any identifying features.",
+        "required": true
+      },
+      {
+        "name": "condition_assessment",
+        "prompt": "Provide an honest assessment of the item's condition, noting any wear, damage, repairs, or alterations.",
+        "required": true
+      },
+      {
+        "name": "provenance",
+        "prompt": "If available, describe any known history of ownership, documentation, or chain of custody.",
+        "required": false
+      },
+      {
+        "name": "collector_notes",
+        "prompt": "Include information relevant to collectors such as rarity, market demand, authentication considerations, and display recommendations.",
+        "required": true
+      }
+    ],
+    "tone": "authoritative yet accessible, historically informed, collector-focused",
+    "word_count": {
+      "min": 200,
+      "max": 400
+    }
+  },
+  "required_fields": [
+    "title",
+    "category",
+    "subcategory",
+    "era_period",
+    "country_of_origin",
+    "condition",
+    "materials",
+    "dimensions",
+    "price"
+  ],
+  "optional_fields": [
+    "manufacturer",
+    "date_of_manufacture",
+    "unit_markings",
+    "serial_numbers",
+    "provenance_documentation",
+    "authentication_notes",
+    "reference_sources"
+  ],
+  "era_options": [
+    "Pre-1900",
+    "World War I (1914-1918)",
+    "Interwar Period (1919-1938)",
+    "World War II (1939-1945)",
+    "Korean War (1950-1953)",
+    "Vietnam War (1955-1975)",
+    "Cold War Era (1947-1991)",
+    "Post-Cold War (1991-2001)",
+    "Modern Era (2001-Present)"
+  ],
+  "condition_criteria": {
+    "Mint": "Unused, complete with all original components, no wear or damage",
+    "Near Mint": "Minimal signs of age, complete, no significant wear",
+    "Excellent": "Light wear consistent with limited use, all original parts",
+    "Very Good": "Moderate wear, may have minor repairs, fully functional appearance",
+    "Good": "Obvious wear, possible repairs or replaced parts, presentable",
+    "Fair": "Heavy wear, damage, or significant alterations, sold as-is",
+    "Poor": "Damaged, incomplete, or heavily altered, for study/parts only"
+  },
+  "seo_rules": {
+    "title": {
+      "max_length": 70,
+      "format": "[Era] [Country] [Item Type] - [Key Feature]",
+      "example": "WWII German Luftwaffe Flight Jacket - Original Sheepskin Lined"
+    },
+    "description": {
+      "max_length": 160,
+      "include_keywords": ["authentic", "original", "military", "collector", "vintage"]
+    },
+    "keywords": {
+      "min_count": 8,
+      "max_count": 15,
+      "include_categories": ["era", "country", "branch", "item_type", "condition", "collector_terms"]
+    }
+  },
+  "authentication_prompts": [
+    "Check for period-correct materials and construction methods",
+    "Verify markings, stamps, and labels against known references",
+    "Examine hardware, fasteners, and attachments for authenticity",
+    "Look for signs of artificial aging or modern reproductions",
+    "Compare to documented examples in reference books or museums",
+    "Consider professional third-party authentication for high-value items"
+  ],
+  "common_red_flags": [
+    "Modern thread or stitching",
+    "Anachronistic materials (polyester, modern plastics)",
+    "Incorrect markings or unit designations",
+    "Artificially aged or distressed appearance",
+    "Missing or incorrect hardware",
+    "Inconsistent wear patterns"
+  ],
+  "reference_sources": [
+    "Standard Catalog of U.S. Military Vehicles",
+    "Collecting the Edged Weapons of the Third Reich",
+    "U.S. Army Uniforms of World War II",
+    "Imperial German Military Antiquities",
+    "The Collector's Guide to Japanese Military Collectibles"
+  ]
+}

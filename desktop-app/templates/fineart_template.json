@@ -1,0 +1,210 @@
+{
+  "category": "fineart",
+  "display_name": "Fine Art",
+  "description_structure": {
+    "sections": [
+      {
+        "name": "overview",
+        "prompt": "Provide an evocative 2-3 sentence overview that captures the artistic merit, visual impact, and appeal of this artwork.",
+        "required": true
+      },
+      {
+        "name": "artist_background",
+        "prompt": "Include relevant information about the artist, their career, artistic movement, and significance in art history.",
+        "required": true
+      },
+      {
+        "name": "artwork_description",
+        "prompt": "Describe the subject matter, composition, color palette, technique, and artistic style in detail.",
+        "required": true
+      },
+      {
+        "name": "medium_technique",
+        "prompt": "Detail the medium, materials, and techniques used, including any notable or distinctive artistic methods.",
+        "required": true
+      },
+      {
+        "name": "condition_assessment",
+        "prompt": "Assess the physical condition, noting any restoration, conservation issues, or original state preservation.",
+        "required": true
+      },
+      {
+        "name": "provenance_exhibition",
+        "prompt": "Document known ownership history, exhibition history, publications, and any certificates of authenticity.",
+        "required": false
+      },
+      {
+        "name": "collector_notes",
+        "prompt": "Provide insights on collecting this artist or style, market context, and display recommendations.",
+        "required": true
+      }
+    ],
+    "tone": "sophisticated yet accessible, art historically informed, evocative and descriptive",
+    "word_count": {
+      "min": 250,
+      "max": 450
+    }
+  },
+  "required_fields": [
+    "title",
+    "artist",
+    "category",
+    "subcategory",
+    "medium",
+    "dimensions",
+    "creation_year",
+    "condition",
+    "price"
+  ],
+  "optional_fields": [
+    "signed",
+    "dated",
+    "framed",
+    "frame_description",
+    "edition_number",
+    "edition_size",
+    "publisher",
+    "provenance",
+    "exhibition_history",
+    "literature_references",
+    "certificate_of_authenticity",
+    "condition_report"
+  ],
+  "medium_types": {
+    "paintings": [
+      "Oil on Canvas",
+      "Oil on Board",
+      "Oil on Panel",
+      "Acrylic on Canvas",
+      "Watercolor on Paper",
+      "Gouache",
+      "Tempera",
+      "Mixed Media",
+      "Encaustic"
+    ],
+    "drawings": [
+      "Graphite/Pencil",
+      "Charcoal",
+      "Ink",
+      "Pastel",
+      "Conte Crayon",
+      "Colored Pencil",
+      "Mixed Media on Paper"
+    ],
+    "prints": [
+      "Etching",
+      "Lithograph",
+      "Screenprint/Serigraph",
+      "Woodcut",
+      "Linocut",
+      "Aquatint",
+      "Mezzotint",
+      "Engraving",
+      "Giclee",
+      "Offset Lithograph",
+      "Digital Print"
+    ],
+    "sculptures": [
+      "Bronze",
+      "Marble",
+      "Stone",
+      "Wood",
+      "Metal",
+      "Ceramic",
+      "Glass",
+      "Mixed Media",
+      "Resin",
+      "Found Objects"
+    ],
+    "photography": [
+      "Gelatin Silver Print",
+      "C-Print/Chromogenic",
+      "Platinum/Palladium",
+      "Albumen Print",
+      "Cyanotype",
+      "Archival Pigment Print",
+      "Daguerreotype",
+      "Tintype"
+    ]
+  },
+  "era_options": [
+    "Old Masters (Pre-1800)",
+    "19th Century",
+    "Impressionist/Post-Impressionist",
+    "Early Modern (1900-1940)",
+    "Post-War (1945-1970)",
+    "Contemporary (1970-Present)",
+    "Emerging Artist"
+  ],
+  "condition_criteria": {
+    "Excellent": "Museum quality, no visible issues, professionally conserved if needed",
+    "Very Good": "Minor age-related wear, no significant damage or restoration",
+    "Good": "Light wear, may have minor restoration, displays well",
+    "Fair": "Visible wear or damage, may need conservation, sold as-is",
+    "Poor": "Significant damage or deterioration, requires restoration"
+  },
+  "frame_condition": {
+    "Original Period Frame": "Note era, style, and condition",
+    "Gallery Frame": "Professional quality frame appropriate to work",
+    "Frame Shows Wear": "Minor chips, scratches, or losses",
+    "Frame Damaged": "Significant damage, may need replacement",
+    "Unframed": "Work is not currently framed"
+  },
+  "seo_rules": {
+    "title": {
+      "max_length": 70,
+      "format": "[Artist Name] [Title if known] [Medium] [Signed/Year if notable]",
+      "example": "Pablo Picasso Original Lithograph 'Femme au Chapeau' Signed 1962"
+    },
+    "description": {
+      "max_length": 160,
+      "include_keywords": ["original", "signed", "authentic", "fine art", "artwork"]
+    },
+    "keywords": {
+      "min_count": 8,
+      "max_count": 15,
+      "include_categories": ["artist", "medium", "style", "period", "subject", "collector_terms"]
+    }
+  },
+  "subcategory_specific": {
+    "paintings": {
+      "check_points": ["Signature location/style", "Canvas/support condition", "Paint surface", "Varnish", "Frame"],
+      "value_factors": ["Artist reputation", "Period/date", "Subject matter", "Size", "Provenance", "Condition"]
+    },
+    "prints": {
+      "check_points": ["Edition number", "Signature", "Paper condition", "Margins", "Foxing/staining", "Frame"],
+      "value_factors": ["Edition size", "Signature presence", "Image quality", "Condition", "Rarity"]
+    },
+    "sculptures": {
+      "check_points": ["Foundry marks", "Edition number", "Patina", "Base/mounting", "Structural integrity"],
+      "value_factors": ["Artist reputation", "Edition size", "Material", "Size", "Condition", "Provenance"]
+    },
+    "photography": {
+      "check_points": ["Print type", "Signature/stamps", "Edition number", "Paper condition", "Fading/deterioration"],
+      "value_factors": ["Photographer significance", "Edition size", "Vintage vs modern print", "Condition", "Subject"]
+    }
+  },
+  "authentication_prompts": [
+    "Examine signature style, placement, and medium consistency",
+    "Compare to documented examples from catalogues raisonnés",
+    "Research provenance thoroughly for gaps or inconsistencies",
+    "Consider scientific testing for high-value works (dating, pigment analysis)",
+    "Verify certificates of authenticity with issuing organizations",
+    "Consult with experts specializing in the artist or period"
+  ],
+  "common_red_flags": [
+    "Signature that appears added later or inconsistent with artist's known style",
+    "Provenance gaps during critical periods",
+    "Price significantly below market expectations",
+    "Reluctance to provide documentation or history",
+    "Certificate from unknown or unverifiable source",
+    "Technical inconsistencies with artist's known methods"
+  ],
+  "display_recommendations": {
+    "lighting": "Avoid direct sunlight; use UV-filtered lighting",
+    "humidity": "Maintain 40-60% relative humidity",
+    "temperature": "Keep stable, avoid extremes and fluctuations",
+    "handling": "Use cotton gloves; support from below",
+    "framing": "Use acid-free materials; consider museum glass"
+  }
+}

@@ -1,0 +1,21 @@
+# Kollect-It Automation System Dependencies
+# Install with: pip install -r requirements.txt
+
+# GUI Framework
+PyQt5>=5.15.0
+
+# Image Processing
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# AI Background Removal (optional but recommended)
+rembg>=2.0.50
+
+# For document export features
+python-docx>=0.8.11
+
+# Anthropic API (for AI descriptions)
+anthropic>=0.18.0

@@ -1,0 +1,167 @@
+{
+  "category": "books",
+  "display_name": "Rare Books & Manuscripts",
+  "description_structure": {
+    "sections": [
+      {
+        "name": "overview",
+        "prompt": "Provide a compelling 2-3 sentence overview of this book or manuscript, highlighting its significance, rarity, or notable features.",
+        "required": true
+      },
+      {
+        "name": "bibliographic_details",
+        "prompt": "Include full bibliographic information: author, title, publisher, place and date of publication, edition, and format.",
+        "required": true
+      },
+      {
+        "name": "physical_description",
+        "prompt": "Describe the binding, paper, illustrations, typography, and any special features such as plates, maps, or fold-outs.",
+        "required": true
+      },
+      {
+        "name": "condition_assessment",
+        "prompt": "Provide detailed condition notes using standard bibliographic terminology, noting any defects, repairs, or notable preservation.",
+        "required": true
+      },
+      {
+        "name": "provenance_inscriptions",
+        "prompt": "Document any ownership inscriptions, bookplates, stamps, marginalia, or known provenance.",
+        "required": false
+      },
+      {
+        "name": "significance",
+        "prompt": "Explain the literary, historical, or cultural significance of this work and its importance to collectors.",
+        "required": true
+      }
+    ],
+    "tone": "scholarly yet accessible, precise bibliographic language, collector-focused",
+    "word_count": {
+      "min": 250,
+      "max": 450
+    }
+  },
+  "required_fields": [
+    "title",
+    "author",
+    "category",
+    "subcategory",
+    "publication_year",
+    "publisher",
+    "edition_printing",
+    "condition",
+    "price"
+  ],
+  "optional_fields": [
+    "place_of_publication",
+    "binding_type",
+    "page_count",
+    "dimensions",
+    "illustrations",
+    "isbn_or_reference",
+    "signed_inscribed",
+    "dust_jacket_present",
+    "slipcase_box",
+    "provenance_documentation"
+  ],
+  "edition_points": {
+    "first_edition_identification": [
+      "Check publisher's statement on copyright page",
+      "Look for number line (1 should be present for first printing)",
+      "Compare to known first edition bibliographic points",
+      "Check publication date matches first publication year",
+      "Verify binding matches first edition specifications"
+    ],
+    "valuable_factors": [
+      "True first edition, first printing",
+      "Author's signature or inscription",
+      "Association copy (owned by notable person)",
+      "Original dust jacket in good condition",
+      "Limited edition or special binding",
+      "Pre-publication review copy",
+      "Proof or advance reading copy"
+    ]
+  },
+  "binding_types": [
+    "Hardcover - Original Cloth",
+    "Hardcover - Leather",
+    "Hardcover - Half Leather",
+    "Hardcover - Vellum/Parchment",
+    "Hardcover - Boards",
+    "Softcover - Original Wrappers",
+    "Softcover - Paperback",
+    "Spiral/Comb Bound",
+    "Pamphlet/Stapled",
+    "Loose Sheets/Portfolio",
+    "Rebacked",
+    "Rebound"
+  ],
+  "condition_criteria": {
+    "Fine": "As new, no defects, appears unread",
+    "Near Fine": "Close to Fine with only minor signs of handling",
+    "Very Good": "Shows some wear, but no major defects",
+    "Good": "Average used copy, all pages present, binding intact",
+    "Fair": "Obviously worn, may have markings or loose pages",
+    "Poor": "Heavily worn, may have damage, sold as reading copy only"
+  },
+  "dust_jacket_condition": {
+    "Fine": "As issued, no defects",
+    "Near Fine": "Light wear, minor imperfections",
+    "Very Good": "Some wear, small tears or chips",
+    "Good": "Moderate wear, price-clipped acceptable",
+    "Fair": "Significant wear, tears, or fading",
+    "Poor": "Major defects, heavily worn"
+  },
+  "seo_rules": {
+    "title": {
+      "max_length": 70,
+      "format": "[Author] [Title] [Edition/Year] [Signed if applicable]",
+      "example": "Hemingway The Old Man and the Sea First Edition 1952 Signed"
+    },
+    "description": {
+      "max_length": 160,
+      "include_keywords": ["first edition", "rare", "signed", "collectible", "vintage"]
+    },
+    "keywords": {
+      "min_count": 8,
+      "max_count": 15,
+      "include_categories": ["author", "title", "genre", "edition", "condition", "collector_terms"]
+    }
+  },
+  "subcategory_specific": {
+    "first_editions": {
+      "key_points": ["Edition statement", "Number line", "Dust jacket", "Binding state", "Provenance"],
+      "value_factors": ["Edition priority", "Dust jacket presence", "Condition", "Signature/inscription", "Scarcity"]
+    },
+    "signed_books": {
+      "key_points": ["Signature authenticity", "Inscription content", "Dating", "Location of signature", "COA if available"],
+      "value_factors": ["Authenticity", "Inscription personalization", "Author significance", "Book condition", "Provenance"]
+    },
+    "manuscripts": {
+      "key_points": ["Author identification", "Content description", "Dating", "Provenance", "Condition"],
+      "value_factors": ["Historical significance", "Author importance", "Content interest", "Condition", "Completeness"]
+    },
+    "maps_atlases": {
+      "key_points": ["Cartographer", "Region depicted", "Date", "Coloring (original or later)", "Condition"],
+      "value_factors": ["Rarity", "Historical importance", "Aesthetic appeal", "Condition", "Size"]
+    },
+    "photographs": {
+      "key_points": ["Photographer", "Subject", "Process/type", "Dating", "Provenance"],
+      "value_factors": ["Photographer significance", "Subject importance", "Rarity", "Condition", "Provenance"]
+    }
+  },
+  "authentication_prompts": [
+    "Verify edition points against authoritative bibliographies",
+    "Examine paper, typography, and binding for period consistency",
+    "Check for signs of sophisticated forgery in signatures",
+    "Compare to known authentic examples when possible",
+    "Research provenance claims thoroughly",
+    "Consider professional authentication for high-value items"
+  ],
+  "reference_sources": [
+    "ABPC (American Book Prices Current)",
+    "Book Collector magazine",
+    "Collected Books: The Guide to Identification and Values",
+    "First Edition Points databases",
+    "Publisher-specific bibliography guides"
+  ]
+}

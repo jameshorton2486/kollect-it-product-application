@@ -1,0 +1,80 @@
+{
+  "api": {
+    "SERVICE_API_KEY": "YOUR_SERVICE_API_KEY_HERE",
+    "production_url": "https://kollect-it.com",
+    "local_url": "http://localhost:3000",
+    "use_local": false,
+    "timeout": 30,
+    "max_retries": 3
+  },
+  "imagekit": {
+    "public_key": "YOUR_IMAGEKIT_PUBLIC_KEY",
+    "private_key": "YOUR_IMAGEKIT_PRIVATE_KEY",
+    "url_endpoint": "https://ik.imagekit.io/kollectit"
+  },
+  "categories": {
+    "militaria": {
+      "prefix": "MILI",
+      "keywords": ["military", "war", "army", "navy", "air force", "marines", "wwii", "ww2", "ww1", "wwi", "civil war", "vietnam", "korea", "uniform", "medal", "badge", "insignia", "helmet", "weapon"],
+      "subcategories": ["Uniforms & Clothing", "Medals & Decorations", "Headgear", "Equipment & Gear", "Edged Weapons", "Documents & Photos", "Flags & Banners", "Aviation", "Naval"]
+    },
+    "collectibles": {
+      "prefix": "COLL",
+      "keywords": ["vintage", "antique", "collectible", "retro", "classic", "rare", "advertising", "sign", "toy", "game"],
+      "subcategories": ["Advertising", "Toys & Games", "Ephemera", "Memorabilia", "Kitchenware", "Tobacciana", "Breweriana", "Petroliana", "Sports"]
+    },
+    "books": {
+      "prefix": "BOOK",
+      "keywords": ["book", "books", "manuscript", "first edition", "signed", "rare book", "antique book", "leather bound", "map", "atlas", "print"],
+      "subcategories": ["First Editions", "Signed Copies", "Manuscripts", "Maps & Atlases", "Antique Books", "Children's Books", "Art Books", "History", "Literature"]
+    },
+    "fineart": {
+      "prefix": "ART",
+      "keywords": ["art", "painting", "sculpture", "print", "lithograph", "etching", "watercolor", "oil painting", "drawing", "sketch", "portrait", "landscape"],
+      "subcategories": ["Oil Paintings", "Watercolors", "Prints & Lithographs", "Drawings", "Sculpture", "Photography", "Mixed Media", "Folk Art", "Decorative Arts"]
+    }
+  },
+  "image_processing": {
+    "max_dimension": 2400,
+    "webp_quality": 88,
+    "thumbnail_size": 400,
+    "strip_exif": true,
+    "auto_orient": true,
+    "background_removal": {
+      "enabled": true,
+      "default_strength": 0.9,
+      "default_bg_color": "#FFFFFF",
+      "preserve_shadows": true,
+      "feather_amount": 2
+    }
+  },
+  "ai": {
+    "api_key": "YOUR_ANTHROPIC_API_KEY",
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 4000,
+    "temperature": 0.7
+  },
+  "paths": {
+    "watch_folder": "~/Google Drive/Kollect-It/New Products",
+    "processed": "./processed",
+    "completed": "~/Google Drive/Kollect-It/Completed",
+    "failed": "~/Google Drive/Kollect-It/Failed",
+    "temp": "./temp",
+    "logs": "./logs"
+  },
+  "automation": {
+    "watch_interval": 60,
+    "auto_publish": true,
+    "auto_background_removal": false,
+    "archive_after_publish": true,
+    "max_images_per_product": 20,
+    "min_images_per_product": 1
+  },
+  "ui": {
+    "theme": "dark",
+    "window_width": 1400,
+    "window_height": 900,
+    "thumbnail_size": 120,
+    "show_grid_lines": true
+  }
+}

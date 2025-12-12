@@ -1,0 +1,65 @@
+# Kollect-It Automation - Git Ignore
+
+# Configuration with API keys (IMPORTANT!)
+config/config.json
+
+# Keep the example config
+!config/config.example.json
+
+# SKU state (can regenerate)
+config/sku_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Processed files (can regenerate)
+processed/
+temp/
+*.webp
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Sensitive
+*.pem
+*.key
+.env
+.env.local

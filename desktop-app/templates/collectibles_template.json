@@ -1,0 +1,136 @@
+{
+  "category": "collectibles",
+  "display_name": "Antiques & Collectibles",
+  "description_structure": {
+    "sections": [
+      {
+        "name": "overview",
+        "prompt": "Provide an engaging 2-3 sentence overview highlighting what makes this collectible special and desirable.",
+        "required": true
+      },
+      {
+        "name": "historical_background",
+        "prompt": "Describe the era, maker, and cultural context of this piece. Include any relevant history about the manufacturer or style.",
+        "required": true
+      },
+      {
+        "name": "physical_description",
+        "prompt": "Detail the materials, construction, dimensions, colors, patterns, and any distinguishing features or maker's marks.",
+        "required": true
+      },
+      {
+        "name": "condition_assessment",
+        "prompt": "Honestly assess the condition, noting any chips, cracks, repairs, fading, or wear patterns.",
+        "required": true
+      },
+      {
+        "name": "provenance",
+        "prompt": "Include any known history, previous ownership, or documentation that accompanies the piece.",
+        "required": false
+      },
+      {
+        "name": "collector_appeal",
+        "prompt": "Explain why this piece appeals to collectors, including rarity, market trends, and display potential.",
+        "required": true
+      }
+    ],
+    "tone": "warm and informative, historically grounded, enthusiastic but honest",
+    "word_count": {
+      "min": 200,
+      "max": 400
+    }
+  },
+  "required_fields": [
+    "title",
+    "category",
+    "subcategory",
+    "era_period",
+    "condition",
+    "materials",
+    "dimensions",
+    "price"
+  ],
+  "optional_fields": [
+    "maker_manufacturer",
+    "pattern_name",
+    "country_of_origin",
+    "date_of_manufacture",
+    "marks_signatures",
+    "provenance_documentation",
+    "reference_sources"
+  ],
+  "era_options": [
+    "18th Century (1700-1799)",
+    "Early 19th Century (1800-1850)",
+    "Victorian Era (1837-1901)",
+    "Edwardian Era (1901-1910)",
+    "Art Nouveau (1890-1910)",
+    "Art Deco (1920-1940)",
+    "Mid-Century Modern (1940-1970)",
+    "Vintage (1970-2000)",
+    "Contemporary Collectible"
+  ],
+  "condition_criteria": {
+    "Mint": "Perfect condition, no flaws, appears unused or as-new",
+    "Near Mint": "Virtually perfect with only the slightest signs of age",
+    "Excellent": "Minor wear, small imperfections, displays beautifully",
+    "Very Good": "Light wear, may have small chips or light scratches",
+    "Good": "Obvious wear, possible repairs, still attractive and complete",
+    "Fair": "Significant wear or damage, sold as-is",
+    "As-Is": "Damaged, incomplete, or for restoration/parts"
+  },
+  "seo_rules": {
+    "title": {
+      "max_length": 70,
+      "format": "[Era/Maker] [Item Type] [Key Feature] - [Condition]",
+      "example": "Roseville Pottery Futura Vase Art Deco 1928 - Excellent"
+    },
+    "description": {
+      "max_length": 160,
+      "include_keywords": ["antique", "vintage", "collectible", "rare", "authentic"]
+    },
+    "keywords": {
+      "min_count": 8,
+      "max_count": 15,
+      "include_categories": ["era", "maker", "style", "material", "condition", "collector_terms"]
+    }
+  },
+  "subcategory_specific": {
+    "ceramics_pottery": {
+      "check_points": ["Bottom marks", "Glaze condition", "Crazing", "Chips/cracks", "Repairs"],
+      "value_factors": ["Maker", "Pattern rarity", "Size", "Condition", "Age"]
+    },
+    "glassware": {
+      "check_points": ["Pontil mark", "Mold seams", "Bubbles", "Color consistency", "Chips/cracks"],
+      "value_factors": ["Maker", "Color rarity", "Pattern", "Size", "Condition"]
+    },
+    "advertising": {
+      "check_points": ["Surface condition", "Color vibrancy", "Rust/corrosion", "Original vs reproduction", "Completeness"],
+      "value_factors": ["Brand recognition", "Age", "Rarity", "Condition", "Visual appeal"]
+    },
+    "political_memorabilia": {
+      "check_points": ["Authenticity indicators", "Campaign year", "Candidate", "Condition", "Provenance"],
+      "value_factors": ["Historical significance", "Rarity", "Condition", "Candidate popularity", "Visual appeal"]
+    },
+    "jewelry": {
+      "check_points": ["Hallmarks", "Metal purity", "Stone quality", "Clasp function", "Overall condition"],
+      "value_factors": ["Designer/maker", "Materials", "Age", "Style", "Condition"]
+    }
+  },
+  "authentication_prompts": [
+    "Examine maker's marks, stamps, or labels under magnification",
+    "Compare construction methods to period-correct examples",
+    "Look for signs of artificial aging or modern reproduction",
+    "Check for consistent wear patterns appropriate to age",
+    "Research the maker's production history and known variations",
+    "Consider professional appraisal for valuable pieces"
+  ],
+  "common_red_flags": [
+    "Marks that appear too crisp or modern",
+    "Inconsistent aging or wear patterns",
+    "Materials not available in the stated period",
+    "Poor quality compared to known authentic examples",
+    "Suspiciously low price for purported rarity",
+    "Missing provenance for claimed historical significance"
+  ]
+}
