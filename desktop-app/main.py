@@ -46,58 +46,86 @@ from modules.ai_engine import AIEngine
 from modules.product_publisher import ProductPublisher
 from modules.background_remover import BackgroundRemover
 from modules.crop_tool import CropDialog
+from modules.import_wizard import ImportWizard
 
 
 class DarkPalette:
-    """Dark theme color palette for the application."""
+    """Dark theme color palette for the application - IMPROVED READABILITY."""
     
-    BACKGROUND = "#1a1a2e"
-    SURFACE = "#16213e"
-    SURFACE_LIGHT = "#1f3460"
-    PRIMARY = "#e94560"
-    PRIMARY_DARK = "#c73e54"
-    SECONDARY = "#0f3460"
-    TEXT = "#eaeaea"
-    TEXT_SECONDARY = "#a0a0a0"
-    BORDER = "#2d3748"
-    SUCCESS = "#48bb78"
-    WARNING = "#ed8936"
-    ERROR = "#fc8181"
+    # Backgrounds - slightly lighter for better contrast
+    BACKGROUND = "#1e1e2e"       # Main background (was #1a1a2e)
+    SURFACE = "#1a1a2e"          # Card/panel background (was #16213e)
+    SURFACE_LIGHT = "#252542"    # Hover states (was #1f3460)
+    
+    # Primary colors
+    PRIMARY = "#e94560"          # Accent color (unchanged)
+    PRIMARY_DARK = "#c73e54"     # Darker accent (unchanged)
+    SECONDARY = "#0f3460"        # Secondary accent (unchanged)
+    
+    # Text colors - IMPROVED CONTRAST
+    TEXT = "#ffffff"             # Primary text - pure white (was #eaeaea)
+    TEXT_SECONDARY = "#b4b4b4"   # Secondary text - lighter (was #a0a0a0)
+    TEXT_MUTED = "#8888a0"       # Muted/placeholder text (new)
+    
+    # Borders
+    BORDER = "#3d3d5c"           # Border color - more visible (was #2d3748)
+    BORDER_FOCUS = "#e94560"     # Focus border (new)
+    
+    # Status colors
+    SUCCESS = "#4ade80"          # Brighter green (was #48bb78)
+    WARNING = "#fbbf24"          # Brighter yellow (was #ed8936)
+    ERROR = "#f87171"            # Error red (was #fc8181)
+    INFO = "#60a5fa"             # Info blue (new)
     
     @classmethod
     def get_stylesheet(cls) -> str:
         return f"""
+            /* ============================================
+               GLOBAL STYLES - Larger base font
+               ============================================ */
             QMainWindow, QWidget {{
                 background-color: {cls.BACKGROUND};
                 color: {cls.TEXT};
                 font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 13px;
+                font-size: 14px;
             }}
             
+            /* ============================================
+               GROUP BOXES - Section containers
+               ============================================ */
             QGroupBox {{
                 background-color: {cls.SURFACE};
                 border: 1px solid {cls.BORDER};
                 border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 10px;
+                margin-top: 16px;
+                padding: 16px;
+                padding-top: 24px;
                 font-weight: bold;
+                font-size: 15px;
             }}
             
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
+                left: 16px;
+                top: 4px;
+                padding: 0 10px;
                 color: {cls.PRIMARY};
+                font-size: 15px;
+                font-weight: bold;
             }}
             
+            /* ============================================
+               BUTTONS - More prominent
+               ============================================ */
             QPushButton {{
                 background-color: {cls.PRIMARY};
                 color: white;
                 border: none;
                 border-radius: 6px;
-                padding: 10px 20px;
+                padding: 12px 24px;
                 font-weight: bold;
-                min-height: 20px;
+                font-size: 14px;
+                min-height: 24px;
             }}
             
             QPushButton:hover {{
@@ -109,8 +137,8 @@ class DarkPalette:
             }}
             
             QPushButton:disabled {{
-                background-color: {cls.BORDER};
-                color: {cls.TEXT_SECONDARY};
+                background-color: #3d3d5c;
+                color: #6b6b8a;
             }}
             
             QPushButton.secondary {{
@@ -121,16 +149,33 @@ class DarkPalette:
                 background-color: {cls.SURFACE_LIGHT};
             }}
             
+            /* ============================================
+               INPUT FIELDS - Better visibility
+               ============================================ */
             QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
                 background-color: {cls.SURFACE};
-                border: 1px solid {cls.BORDER};
+                border: 2px solid {cls.BORDER};
                 border-radius: 6px;
-                padding: 8px 12px;
+                padding: 10px 14px;
                 color: {cls.TEXT};
+                font-size: 14px;
+                min-height: 20px;
             }}
             
-            QLineEdit:focus, QTextEdit:focus {{
+            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{
                 border-color: {cls.PRIMARY};
+                background-color: #1e1e32;
+            }}
+            
+            QLineEdit::placeholder, QTextEdit::placeholder {{
+                color: {cls.TEXT_MUTED};
+            }}
+            
+            /* ============================================
+               COMBO BOX - Dropdown styling
+               ============================================ */
+            QComboBox {{
+                padding-right: 30px;
             }}
             
             QComboBox::drop-down {{
@@ -140,106 +185,201 @@ class DarkPalette:
             
             QComboBox::down-arrow {{
                 image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
                 border-top: 8px solid {cls.TEXT};
-                margin-right: 10px;
+                margin-right: 12px;
             }}
             
+            QComboBox QAbstractItemView {{
+                background-color: {cls.SURFACE};
+                border: 2px solid {cls.BORDER};
+                border-radius: 6px;
+                color: {cls.TEXT};
+                selection-background-color: {cls.SURFACE_LIGHT};
+                padding: 4px;
+                font-size: 14px;
+            }}
+            
+            QComboBox QAbstractItemView::item {{
+                padding: 8px 12px;
+                min-height: 28px;
+            }}
+            
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {cls.SURFACE_LIGHT};
+            }}
+            
+            /* ============================================
+               SPIN BOXES - Number inputs
+               ============================================ */
+            QSpinBox::up-button, QDoubleSpinBox::up-button,
+            QSpinBox::down-button, QDoubleSpinBox::down-button {{
+                background-color: {cls.SURFACE_LIGHT};
+                border: none;
+                width: 24px;
+            }}
+            
+            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+                background-color: {cls.PRIMARY};
+            }}
+            
+            /* ============================================
+               PROGRESS BAR - More visible
+               ============================================ */
             QProgressBar {{
                 background-color: {cls.SURFACE};
                 border: none;
-                border-radius: 4px;
-                height: 8px;
+                border-radius: 6px;
+                height: 12px;
                 text-align: center;
+                font-size: 11px;
+                color: {cls.TEXT};
             }}
             
             QProgressBar::chunk {{
                 background-color: {cls.PRIMARY};
-                border-radius: 4px;
+                border-radius: 6px;
             }}
             
+            /* ============================================
+               LIST WIDGET - File lists
+               ============================================ */
             QListWidget {{
                 background-color: {cls.SURFACE};
-                border: 1px solid {cls.BORDER};
+                border: 2px solid {cls.BORDER};
                 border-radius: 6px;
-                padding: 4px;
+                padding: 6px;
+                font-size: 14px;
             }}
             
             QListWidget::item {{
-                padding: 8px;
+                padding: 10px;
                 border-radius: 4px;
+                margin: 2px 0;
             }}
             
             QListWidget::item:selected {{
                 background-color: {cls.SURFACE_LIGHT};
+                color: {cls.TEXT};
             }}
             
             QListWidget::item:hover {{
                 background-color: {cls.SECONDARY};
             }}
             
+            /* ============================================
+               TABS - Navigation tabs
+               ============================================ */
             QTabWidget::pane {{
                 background-color: {cls.SURFACE};
-                border: 1px solid {cls.BORDER};
+                border: 2px solid {cls.BORDER};
                 border-radius: 8px;
+                top: -2px;
             }}
             
             QTabBar::tab {{
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT_SECONDARY};
-                padding: 10px 20px;
+                padding: 12px 24px;
                 margin-right: 4px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid transparent;
+                border-bottom: none;
             }}
             
             QTabBar::tab:selected {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.SURFACE};
                 color: {cls.PRIMARY};
+                border-color: {cls.BORDER};
             }}
             
+            QTabBar::tab:hover:!selected {{
+                background-color: {cls.SURFACE_LIGHT};
+                color: {cls.TEXT};
+            }}
+            
+            /* ============================================
+               SCROLL BARS - Wider and more visible
+               ============================================ */
             QScrollBar:vertical {{
                 background-color: {cls.SURFACE};
-                width: 12px;
-                border-radius: 6px;
+                width: 14px;
+                border-radius: 7px;
+                margin: 2px;
             }}
             
             QScrollBar::handle:vertical {{
                 background-color: {cls.BORDER};
-                border-radius: 6px;
-                min-height: 30px;
+                border-radius: 7px;
+                min-height: 40px;
             }}
             
             QScrollBar::handle:vertical:hover {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.TEXT_MUTED};
             }}
             
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0px;
+            }}
+            
+            QScrollBar:horizontal {{
+                background-color: {cls.SURFACE};
+                height: 14px;
+                border-radius: 7px;
+                margin: 2px;
+            }}
+            
+            QScrollBar::handle:horizontal {{
+                background-color: {cls.BORDER};
+                border-radius: 7px;
+                min-width: 40px;
+            }}
+            
+            /* ============================================
+               LABELS - Text styling
+               ============================================ */
             QLabel {{
                 color: {cls.TEXT};
+                font-size: 14px;
             }}
             
             QLabel.title {{
-                font-size: 24px;
+                font-size: 28px;
                 font-weight: bold;
                 color: {cls.PRIMARY};
             }}
             
             QLabel.subtitle {{
-                font-size: 14px;
+                font-size: 16px;
                 color: {cls.TEXT_SECONDARY};
             }}
             
+            QLabel.section-header {{
+                font-size: 16px;
+                font-weight: bold;
+                color: {cls.PRIMARY};
+            }}
+            
+            /* ============================================
+               CHECKBOXES
+               ============================================ */
             QCheckBox {{
                 color: {cls.TEXT};
-                spacing: 8px;
+                spacing: 10px;
+                font-size: 14px;
             }}
             
             QCheckBox::indicator {{
-                width: 18px;
-                height: 18px;
+                width: 20px;
+                height: 20px;
                 border-radius: 4px;
                 border: 2px solid {cls.BORDER};
+                background-color: {cls.SURFACE};
             }}
             
             QCheckBox::indicator:checked {{
@@ -247,34 +387,60 @@ class DarkPalette:
                 border-color: {cls.PRIMARY};
             }}
             
+            QCheckBox::indicator:hover {{
+                border-color: {cls.PRIMARY};
+            }}
+            
+            /* ============================================
+               SLIDERS
+               ============================================ */
             QSlider::groove:horizontal {{
-                height: 6px;
+                height: 8px;
                 background-color: {cls.SURFACE};
-                border-radius: 3px;
+                border-radius: 4px;
             }}
             
             QSlider::handle:horizontal {{
-                width: 18px;
-                height: 18px;
+                width: 20px;
+                height: 20px;
                 margin: -6px 0;
                 background-color: {cls.PRIMARY};
-                border-radius: 9px;
+                border-radius: 10px;
+            }}
+            
+            QSlider::handle:horizontal:hover {{
+                background-color: {cls.PRIMARY_DARK};
             }}
             
             QSlider::sub-page:horizontal {{
                 background-color: {cls.PRIMARY};
-                border-radius: 3px;
+                border-radius: 4px;
             }}
             
+            /* ============================================
+               STATUS BAR
+               ============================================ */
             QStatusBar {{
                 background-color: {cls.SURFACE};
-                color: {cls.TEXT_SECONDARY};
+                color: {cls.TEXT};
+                font-size: 13px;
+                padding: 6px;
+                border-top: 1px solid {cls.BORDER};
             }}
             
+            /* ============================================
+               MENU BAR
+               ============================================ */
             QMenuBar {{
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT};
-                padding: 4px;
+                padding: 6px;
+                font-size: 14px;
+            }}
+            
+            QMenuBar::item {{
+                padding: 8px 14px;
+                border-radius: 4px;
             }}
             
             QMenuBar::item:selected {{
@@ -283,13 +449,14 @@ class DarkPalette:
             
             QMenu {{
                 background-color: {cls.SURFACE};
-                border: 1px solid {cls.BORDER};
-                border-radius: 6px;
-                padding: 4px;
+                border: 2px solid {cls.BORDER};
+                border-radius: 8px;
+                padding: 6px;
+                font-size: 14px;
             }}
             
             QMenu::item {{
-                padding: 8px 24px;
+                padding: 10px 28px;
                 border-radius: 4px;
             }}
             
@@ -297,11 +464,63 @@ class DarkPalette:
                 background-color: {cls.SURFACE_LIGHT};
             }}
             
+            QMenu::separator {{
+                height: 1px;
+                background-color: {cls.BORDER};
+                margin: 6px 10px;
+            }}
+            
+            /* ============================================
+               TOOLBAR
+               ============================================ */
             QToolBar {{
                 background-color: {cls.SURFACE};
                 border: none;
-                spacing: 8px;
+                spacing: 10px;
+                padding: 10px;
+                border-bottom: 1px solid {cls.BORDER};
+            }}
+            
+            QToolBar QToolButton {{
+                background-color: transparent;
+                color: {cls.TEXT};
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 14px;
+            }}
+            
+            QToolBar QToolButton:hover {{
+                background-color: {cls.SURFACE_LIGHT};
+            }}
+            
+            /* ============================================
+               TEXT EDIT - Activity log, descriptions
+               ============================================ */
+            QTextEdit {{
+                font-size: 14px;
+                line-height: 1.5;
+            }}
+            
+            /* ============================================
+               FORM LABELS - Row labels
+               ============================================ */
+            QFormLayout QLabel {{
+                font-size: 14px;
+                font-weight: 500;
+                color: {cls.TEXT_SECONDARY};
+                min-width: 90px;
+            }}
+            
+            /* ============================================
+               TOOLTIPS
+               ============================================ */
+            QToolTip {{
+                background-color: {cls.SURFACE_LIGHT};
+                color: {cls.TEXT};
+                border: 1px solid {cls.BORDER};
+                border-radius: 4px;
                 padding: 8px;
+                font-size: 13px;
             }}
         """
 
@@ -340,21 +559,23 @@ class DropZone(QFrame):
         
         # Main text
         main_text = QLabel("Drag & Drop Product Folder Here")
-        main_text.setStyleSheet(f"""
-            font-size: 18px;
-            font-weight: bold;
-            color: {DarkPalette.TEXT};
-            border: none;
+        main_text.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 18px;
+                font-weight: bold;
+            }
         """)
         main_text.setAlignment(Qt.AlignCenter)
         layout.addWidget(main_text)
         
         # Sub text
         sub_text = QLabel("or click Browse to select a folder")
-        sub_text.setStyleSheet(f"""
-            font-size: 13px;
-            color: {DarkPalette.TEXT_SECONDARY};
-            border: none;
+        sub_text.setStyleSheet("""
+            QLabel {
+                color: #b4b4b4;
+                font-size: 14px;
+            }
         """)
         sub_text.setAlignment(Qt.AlignCenter)
         layout.addWidget(sub_text)
@@ -613,7 +834,7 @@ class KollectItApp(QMainWindow):
     def setup_ui(self):
         """Initialize the main user interface."""
         self.setWindowTitle("Kollect-It Product Manager")
-        self.setMinimumSize(1400, 900)
+        self.setMinimumSize(1600, 1000)
         self.setStyleSheet(DarkPalette.get_stylesheet())
         
         # Central widget
@@ -632,6 +853,24 @@ class KollectItApp(QMainWindow):
         self.drop_zone = DropZone()
         self.drop_zone.folder_dropped.connect(self.on_folder_dropped)
         left_layout.addWidget(self.drop_zone)
+        
+        # New Product button below drop zone
+        new_product_btn = QPushButton("📦 Add New Product")
+        new_product_btn.setMinimumHeight(40)
+        new_product_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #48bb78;
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #38a169;
+            }
+        """)
+        new_product_btn.clicked.connect(self.open_import_wizard)
+        left_layout.addWidget(new_product_btn)
         
         # Image preview section
         images_group = QGroupBox("Product Images")
@@ -900,6 +1139,15 @@ class KollectItApp(QMainWindow):
         # File menu
         file_menu = menubar.addMenu("File")
         
+        # New Product action (at the top of File menu)
+        new_product_action = QAction("📦 &New Product...", self)
+        new_product_action.setShortcut("Ctrl+N")
+        new_product_action.setStatusTip("Import photos and create a new product")
+        new_product_action.triggered.connect(self.open_import_wizard)
+        file_menu.addAction(new_product_action)
+        
+        file_menu.addSeparator()
+        
         open_action = QAction("Open Folder...", self)
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.open_folder)
@@ -949,6 +1197,14 @@ class KollectItApp(QMainWindow):
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
         
+        # New Product button (at the start)
+        new_product_action = QAction("📦 New Product", self)
+        new_product_action.setStatusTip("Import photos and create a new product")
+        new_product_action.triggered.connect(self.open_import_wizard)
+        toolbar.addAction(new_product_action)
+        
+        toolbar.addSeparator()
+        
         toolbar.addAction("📂 Open", self.open_folder)
         toolbar.addAction("⚡ Process", self.optimize_images)
         toolbar.addAction("☁️ Upload", self.upload_to_imagekit)
@@ -959,21 +1215,26 @@ class KollectItApp(QMainWindow):
         self.statusBar().showMessage("Ready - Drop a product folder to begin")
         
     def log(self, message: str, level: str = "info"):
-        """Add a message to the activity log."""
+        """Add a message to the activity log with timestamp and color coding."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         
+        # Color coding for different levels
         colors = {
-            "info": DarkPalette.TEXT,
-            "success": DarkPalette.SUCCESS,
-            "warning": DarkPalette.WARNING,
-            "error": DarkPalette.ERROR
+            "info": "#60a5fa",      # Blue
+            "success": "#4ade80",   # Green
+            "warning": "#fbbf24",   # Yellow
+            "error": "#f87171",     # Red
         }
-        color = colors.get(level, DarkPalette.TEXT)
+        color = colors.get(level, "#ffffff")
         
-        self.log_output.append(
-            f'<span style="color: {DarkPalette.TEXT_SECONDARY}">[{timestamp}]</span> '
-            f'<span style="color: {color}">{message}</span>'
-        )
+        # Format with HTML for colored output
+        formatted = f'<span style="color: #6b7280;">[{timestamp}]</span> <span style="color: {color};">{message}</span>'
+        
+        self.log_output.append(formatted)
+        
+        # Auto-scroll to bottom
+        scrollbar = self.log_output.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
         
     def on_folder_dropped(self, folder_path: str):
         """Handle when a folder is dropped or selected."""
@@ -1500,6 +1761,46 @@ class KollectItApp(QMainWindow):
             "antiques and collectibles listings.\n\n"
             "© 2025 Kollect-It"
         )
+    
+    def open_import_wizard(self):
+        """Open the import wizard dialog."""
+        wizard = ImportWizard(self.config, self)
+        wizard.import_complete.connect(self.on_import_complete)
+        wizard.exec_()
+    
+    def on_import_complete(self, folder_path: str):
+        """Handle completed import - load the new product."""
+        self.log(f"Product imported to: {folder_path}", "success")
+        
+        # Load the imported folder into the editor
+        if folder_path:
+            # Read the product_info.json to get title and SKU
+            info_file = Path(folder_path) / "product_info.json"
+            if info_file.exists():
+                try:
+                    with open(info_file) as f:
+                        info = json.load(f)
+                    
+                    # Set the SKU
+                    self.sku_edit.setText(info.get("sku", ""))
+                    
+                    # Set the title
+                    self.title_edit.setText(info.get("title", ""))
+                    
+                    # Set the category
+                    category = info.get("category", "")
+                    if category:
+                        index = self.category_combo.findData(category)
+                        if index >= 0:
+                            self.category_combo.setCurrentIndex(index)
+                    
+                except Exception as e:
+                    self.log(f"Error reading product info: {e}", "warning")
+            
+            # Load the folder using existing method
+            self.on_folder_dropped(folder_path)
+            
+            self.log("Product loaded - ready for processing", "info")
 
 
 def main():
