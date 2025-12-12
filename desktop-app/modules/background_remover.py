@@ -17,8 +17,7 @@ try:
     REMBG_AVAILABLE = True
 except ImportError:
     REMBG_AVAILABLE = False
-    print("Warning: rembg not installed. Background removal will use fallback method.")
-    print("Install with: pip install rembg --break-system-packages")
+    # Warning will be shown only when background removal is actually used
 
 
 class BackgroundRemover:
@@ -84,6 +83,14 @@ class BackgroundRemover:
             if REMBG_AVAILABLE:
                 result = self._remove_with_rembg(img, strength)
             else:
+                # Show warning only when actually using fallback
+                import warnings
+                warnings.warn(
+                    "rembg not installed. Using fallback background removal method. "
+                    "For best results, install rembg: pip install rembg --break-system-packages "
+                    "(Note: Requires Visual Studio Build Tools on Windows)",
+                    UserWarning
+                )
                 result = self._remove_fallback(img, strength)
             
             # Apply feathering to edges
@@ -132,9 +139,8 @@ class BackgroundRemover:
         # Simple edge-based detection
         # This is a basic fallback - actual edge detection would be more complex
         
-        # For now, just return the original with a note
-        print("Using fallback background removal - results may vary")
-        print("For best results, install rembg: pip install rembg --break-system-packages")
+        # Fallback method - basic edge detection
+        # Warning is shown at call site, not here
         
         # Create a simple mask based on color similarity to edges
         # This is a very basic approach

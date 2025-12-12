@@ -406,9 +406,16 @@ class DropZone(QFrame):
                 )
     
     def browse_folder(self):
+        # Get default path from config, fallback to user's home directory
+        default_path = ""
+        if hasattr(self, 'config'):
+            default_path = self.config.get("paths", {}).get("default_browse", "")
+        if not default_path:
+            default_path = str(Path.home())
+        
         folder = QFileDialog.getExistingDirectory(
             self, "Select Product Folder",
-            "", QFileDialog.ShowDirsOnly
+            default_path, QFileDialog.ShowDirsOnly
         )
         if folder:
             self.folder_dropped.emit(folder)
@@ -531,6 +538,7 @@ class KollectItApp(QMainWindow):
         self.config = self.load_config()
         self.current_folder = None
         self.current_images = []
+        self.uploaded_image_urls = []  # Store URLs after ImageKit upload
         self.processing_thread = None
         
         self.setup_ui()
@@ -539,12 +547,62 @@ class KollectItApp(QMainWindow):
         self.setup_statusbar()
         
     def load_config(self) -> dict:
-        """Load configuration from config.json."""
+        """Load configuration from config.json with validation."""
         config_path = Path(__file__).parent / "config" / "config.json"
-        if config_path.exists():
-            with open(config_path) as f:
-                return json.load(f)
-        return {}
+        example_path = Path(__file__).parent / "config" / "config.example.json"
+        
+        # Check if config exists
+        if not config_path.exists():
+            error_msg = (
+                "Configuration file not found!\n\n"
+                f"Expected: {config_path}\n\n"
+                "Please copy config.example.json to config.json and configure your API keys:\n"
+                "1. Copy config/config.example.json to config/config.json\n"
+                "2. Add your SERVICE_API_KEY\n"
+                "3. Add your ImageKit credentials\n"
+                "4. Add your Anthropic API key"
+            )
+            QMessageBox.critical(None, "Configuration Error", error_msg)
+            sys.exit(1)
+        
+        # Try to parse config
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except json.JSONDecodeError as e:
+            QMessageBox.critical(
+                None, "Configuration Error",
+                f"Invalid JSON in config.json:\n\n{e}\n\nPlease fix the syntax error."
+            )
+            sys.exit(1)
+        except Exception as e:
+            QMessageBox.critical(
+                None, "Configuration Error",
+                f"Error reading config.json:\n\n{e}"
+            )
+            sys.exit(1)
+        
+        # Validate required sections
+        required_sections = ["api", "imagekit", "categories", "image_processing"]
+        missing = [s for s in required_sections if s not in config]
+        
+        if missing:
+            QMessageBox.warning(
+                None, "Configuration Warning",
+                f"Missing configuration sections: {', '.join(missing)}\n\n"
+                "Some features may not work correctly."
+            )
+        
+        # Validate API keys are not placeholder values
+        api_key = config.get("api", {}).get("SERVICE_API_KEY", "")
+        if not api_key or api_key == "YOUR_SERVICE_API_KEY_HERE":
+            QMessageBox.warning(
+                None, "Configuration Warning",
+                "SERVICE_API_KEY is not configured.\n\n"
+                "Publishing to the website will not work until you add your API key."
+            )
+        
+        return config
     
     def save_config(self):
         """Save configuration to config.json."""
@@ -647,8 +705,20 @@ class KollectItApp(QMainWindow):
         
         # Category
         self.category_combo = QComboBox()
-        for cat_id, cat_data in self.config.get("categories", {}).items():
-            self.category_combo.addItem(cat_data["display_name"], cat_id)
+        # Clear existing items
+        self.category_combo.clear()
+        
+        # Add categories from config with proper data
+        for cat_id, cat_info in self.config.get("categories", {}).items():
+            display_name = cat_info.get("name", cat_id.title())
+            # addItem(display_text, user_data) - the second param is returned by currentData()
+            self.category_combo.addItem(display_name, cat_id)
+        
+        # Set default selection
+        default_cat = self.config.get("defaults", {}).get("default_category", "collectibles")
+        index = self.category_combo.findData(default_cat)
+        if index >= 0:
+            self.category_combo.setCurrentIndex(index)
         self.category_combo.currentIndexChanged.connect(self.on_category_changed)
         form.addRow("Category:", self.category_combo)
         
@@ -1255,10 +1325,23 @@ class KollectItApp(QMainWindow):
             uploaded_urls = []
             total = len(self.current_images)
             
-            for i, img_path in enumerate(self.current_images):
-                result = uploader.upload(img_path, folder)
-                if result:
-                    uploaded_urls.append(result)
+        for i, img_path in enumerate(self.current_images):
+            result = uploader.upload(img_path, folder)
+            if result and result.get("success"):
+                url = result.get("url")
+                if url:
+                    uploaded_urls.append(url)
+                    self.log(f"Uploaded: {Path(img_path).name} → {url}", "info")
+                else:
+                    self.log(f"Upload returned no URL for {Path(img_path).name}", "warning")
+            else:
+                error_msg = result.get("error", "Unknown error") if result else "No response"
+                self.log(f"Failed to upload {Path(img_path).name}: {error_msg}", "error")
+            
+            progress = int(((i + 1) / total) * 100)
+            self.progress_bar.setValue(progress)
+            self.status_label.setText(f"Uploading {i + 1}/{total}...")
+            QApplication.processEvents()  # Keep UI responsive
                     
                 progress = int(((i + 1) / total) * 100)
                 self.progress_bar.setValue(progress)

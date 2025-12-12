@@ -22,15 +22,19 @@ class ProductPublisher:
         api_config = config.get("api", {})
         
         self.api_key = api_config.get("SERVICE_API_KEY", "")
-        self.use_production = api_config.get("use_production", True)
+        self.use_local = api_config.get("use_local", False)
         
-        if self.use_production:
-            self.base_url = api_config.get("production_url", "https://kollect-it.com/api/admin/products/service-create")
+        # Build base URL from config
+        if self.use_local:
+            base = api_config.get("local_url", "http://localhost:3000")
         else:
-            self.base_url = api_config.get("local_url", "http://localhost:3000/api/admin/products/service-create")
+            base = api_config.get("production_url", "https://kollect-it.com")
         
-        self.timeout = api_config.get("timeout_seconds", 30)
-        self.retry_attempts = api_config.get("retry_attempts", 3)
+        # Ensure no trailing slash and append endpoint
+        self.base_url = f"{base.rstrip('/')}/api/admin/products/service-create"
+        
+        self.timeout = api_config.get("timeout", 30)
+        self.max_retries = api_config.get("max_retries", 3)
     
     def _get_headers(self) -> Dict[str, str]:
         """Get request headers with API key."""
@@ -118,8 +122,9 @@ class ProductPublisher:
         
         # Attempt publish with retries
         last_error = None
+        response = None
         
-        for attempt in range(self.retry_attempts):
+        for attempt in range(self.max_retries):
             try:
                 response = requests.post(
                     self.base_url,
@@ -169,13 +174,18 @@ class ProductPublisher:
                 last_error = str(e)
             
             # Don't retry on authentication or validation errors
-            if response.status_code in (401, 400, 409):
+            if response is not None and response.status_code in (401, 400, 409):
                 break
+            
+            # Wait before retry (exponential backoff)
+            if attempt < self.max_retries - 1:
+                import time
+                time.sleep(2 ** attempt)
         
         return {
             "success": False,
             "error": "Publishing failed",
-            "message": last_error
+            "message": last_error or "Unknown error after all retries"
         }
     
     def check_service_status(self) -> Dict[str, Any]:

@@ -10,29 +10,47 @@
   "imagekit": {
     "public_key": "YOUR_IMAGEKIT_PUBLIC_KEY",
     "private_key": "YOUR_IMAGEKIT_PRIVATE_KEY",
-    "url_endpoint": "https://ik.imagekit.io/kollectit"
+    "url_endpoint": "https://ik.imagekit.io/kollectit",
+    "upload_folder": "products"
   },
   "categories": {
     "militaria": {
+      "name": "Militaria",
       "prefix": "MILI",
       "keywords": ["military", "war", "army", "navy", "air force", "marines", "wwii", "ww2", "ww1", "wwi", "civil war", "vietnam", "korea", "uniform", "medal", "badge", "insignia", "helmet", "weapon"],
       "subcategories": ["Uniforms & Clothing", "Medals & Decorations", "Headgear", "Equipment & Gear", "Edged Weapons", "Documents & Photos", "Flags & Banners", "Aviation", "Naval"]
     },
     "collectibles": {
+      "name": "Collectibles",
       "prefix": "COLL",
       "keywords": ["vintage", "antique", "collectible", "retro", "classic", "rare", "advertising", "sign", "toy", "game"],
       "subcategories": ["Advertising", "Toys & Games", "Ephemera", "Memorabilia", "Kitchenware", "Tobacciana", "Breweriana", "Petroliana", "Sports"]
     },
     "books": {
+      "name": "Books & Manuscripts",
       "prefix": "BOOK",
       "keywords": ["book", "books", "manuscript", "first edition", "signed", "rare book", "antique book", "leather bound", "map", "atlas", "print"],
       "subcategories": ["First Editions", "Signed Copies", "Manuscripts", "Maps & Atlases", "Antique Books", "Children's Books", "Art Books", "History", "Literature"]
     },
     "fineart": {
+      "name": "Fine Art",
       "prefix": "ART",
       "keywords": ["art", "painting", "sculpture", "print", "lithograph", "etching", "watercolor", "oil painting", "drawing", "sketch", "portrait", "landscape"],
       "subcategories": ["Oil Paintings", "Watercolors", "Prints & Lithographs", "Drawings", "Sculpture", "Photography", "Mixed Media", "Folk Art", "Decorative Arts"]
     }
+  },
+  "defaults": {
+    "condition_grades": [
+      "Mint",
+      "Excellent",
+      "Very Good",
+      "Good",
+      "Fair",
+      "Poor",
+      "As-Is"
+    ],
+    "default_category": "collectibles",
+    "default_status": "draft"
   },
   "image_processing": {
     "max_dimension": 2400,
@@ -55,10 +73,11 @@
     "temperature": 0.7
   },
   "paths": {
-    "watch_folder": "~/Google Drive/Kollect-It/New Products",
+    "default_browse": "G:/My Drive/Kollect-It/Products",
+    "watch_folder": "G:/My Drive/Kollect-It/New Products",
     "processed": "./processed",
-    "completed": "~/Google Drive/Kollect-It/Completed",
-    "failed": "~/Google Drive/Kollect-It/Failed",
+    "completed": "G:/My Drive/Kollect-It/Completed",
+    "failed": "G:/My Drive/Kollect-It/Failed",
     "temp": "./temp",
     "logs": "./logs"
   },

@@ -7,6 +7,7 @@ Handles AI-powered description generation, valuation, and SEO optimization.
 import os
 import json
 import base64
+import re
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import requests
@@ -35,6 +36,23 @@ class AIEngine:
         self.temperature = ai_config.get("temperature", 0.7)
         
         self.templates_dir = Path(__file__).parent.parent / "templates"
+    
+    def _clean_json_response(self, response: str) -> str:
+        """Clean markdown formatting from JSON response."""
+        if not response:
+            return ""
+        
+        cleaned = response.strip()
+        
+        # Remove markdown code fences (```json ... ``` or ``` ... ```)
+        # Handle cases with or without language identifier
+        cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
+        cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+        
+        # Also handle single backticks sometimes used
+        cleaned = cleaned.strip('`').strip()
+        
+        return cleaned
         
     def _load_template(self, category: str) -> dict:
         """Load category-specific template."""
@@ -230,19 +248,12 @@ Respond ONLY with a valid JSON object, no markdown formatting."""
         
         if response:
             try:
-                # Clean up response if wrapped in markdown
-                cleaned = response.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("```")[1]
-                    if cleaned.startswith("json"):
-                        cleaned = cleaned[4:]
-                cleaned = cleaned.strip()
-                
+                cleaned = self._clean_json_response(response)
                 return json.loads(cleaned)
             except json.JSONDecodeError as e:
                 print(f"JSON parse error: {e}")
-                # Return raw text if JSON parsing fails
-                return {"description": response, "error": "JSON parsing failed"}
+                print(f"Raw response: {response[:500]}...")
+                return {"description": response, "error": "JSON parsing failed", "raw": cleaned}
         
         return None
     
@@ -293,16 +304,12 @@ Respond ONLY with a valid JSON object."""
         
         if response:
             try:
-                cleaned = response.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("```")[1]
-                    if cleaned.startswith("json"):
-                        cleaned = cleaned[4:]
-                cleaned = cleaned.strip()
-                
+                cleaned = self._clean_json_response(response)
                 return json.loads(cleaned)
-            except json.JSONDecodeError:
-                return {"notes": response, "error": "JSON parsing failed"}
+            except json.JSONDecodeError as e:
+                print(f"JSON parse error: {e}")
+                print(f"Raw response: {response[:500]}...")
+                return {"notes": response, "error": "JSON parsing failed", "raw": cleaned}
         
         return None
     
@@ -338,16 +345,12 @@ Respond ONLY with a valid JSON object."""
         
         if response:
             try:
-                cleaned = response.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("```")[1]
-                    if cleaned.startswith("json"):
-                        cleaned = cleaned[4:]
-                cleaned = cleaned.strip()
-                
+                cleaned = self._clean_json_response(response)
                 return json.loads(cleaned)
-            except json.JSONDecodeError:
-                return {"raw_response": response}
+            except json.JSONDecodeError as e:
+                print(f"JSON parse error: {e}")
+                print(f"Raw response: {response[:500]}...")
+                return {"raw_response": response, "error": "JSON parsing failed", "raw": cleaned}
         
         return None
     
@@ -386,17 +389,13 @@ Return ONLY a JSON array of keywords, no other text."""
         
         if response:
             try:
-                cleaned = response.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("```")[1]
-                    if cleaned.startswith("json"):
-                        cleaned = cleaned[4:]
-                cleaned = cleaned.strip()
-                
+                cleaned = self._clean_json_response(response)
                 keywords = json.loads(cleaned)
                 if isinstance(keywords, list):
                     return keywords[:count]
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                print(f"JSON parse error: {e}")
+                print(f"Raw response: {response[:500]}...")
                 pass
         
         return []
