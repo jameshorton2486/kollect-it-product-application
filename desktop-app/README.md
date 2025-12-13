@@ -39,8 +39,39 @@ pip install -r requirements.txt
 
 Or install individually:
 ```bash
-pip install PyQt5 Pillow numpy requests rembg python-docx anthropic
+pip install PyQt5 Pillow numpy requests python-docx anthropic
 ```
+
+### Step 1.5: Install rembg (Optional but Recommended)
+
+**rembg** is used for AI-powered background removal. It's optional - the app will work without it but with lower-quality fallback methods.
+
+#### Standard Installation (CPU)
+Works on all computers:
+```bash
+pip install rembg
+```
+
+#### GPU Installation (Faster - NVIDIA GPU Required)
+For faster processing, especially with batch operations:
+```bash
+pip install rembg[gpu]
+```
+
+**Note:** GPU version requires:
+- NVIDIA GPU with CUDA support
+- CUDA Toolkit installed
+- cuDNN library
+
+**First Run:** The first time you use rembg, it will download a pre-trained AI model (~170MB). This is automatic but may take a few moments.
+
+**Troubleshooting:**
+- If you get ONNX runtime conflicts when switching between CPU/GPU versions:
+  ```bash
+  pip uninstall onnxruntime onnxruntime-gpu
+  pip install rembg[gpu]  # or rembg for CPU
+  ```
+- Python version: rembg works best with Python 3.7-3.11. If you're on 3.12+, consider using a virtual environment with Python 3.10.
 
 ### Step 2: Configure API Keys
 
@@ -122,6 +153,30 @@ python automation_worker.py --test
 ```bash
 python automation_worker.py --status
 ```
+
+### Batch Background Removal (Standalone Script)
+
+Process all images in a folder to remove backgrounds:
+
+```bash
+# Basic usage - processes images in folder, saves to ./processed
+python batch_remove_backgrounds.py ./photos
+
+# Specify output folder
+python batch_remove_backgrounds.py ./photos ./output
+
+# Custom settings
+python batch_remove_backgrounds.py ./photos --strength 0.9 --bg-color "#FFFFFF"
+
+# Check rembg installation
+python batch_remove_backgrounds.py --check-install
+```
+
+**Options:**
+- `--strength`: Removal strength 0.0-1.0 (default: 0.8)
+- `--bg-color`: Background color hex code or "transparent" (default: #FFFFFF)
+- `--gpu`: Use GPU acceleration (requires rembg[gpu])
+- `--check-install`: Check rembg installation status
 
 ---
 
@@ -316,11 +371,27 @@ pip install -r requirements.txt
 - Ensure the Next.js server is running (for local testing)
 
 ### Background remover not working
-Install rembg separately:
+
+**Check installation:**
 ```bash
-pip install rembg[gpu]  # For GPU acceleration
-# or
-pip install rembg       # CPU only
+python batch_remove_backgrounds.py --check-install
+```
+
+**Install rembg:**
+```bash
+# CPU version (works everywhere)
+pip install rembg
+
+# GPU version (NVIDIA GPU required, faster)
+pip install rembg[gpu]
+```
+
+**First run:** rembg will download the AI model (~170MB) on first use. This is normal and automatic.
+
+**If you get ONNX runtime errors:**
+```bash
+pip uninstall onnxruntime onnxruntime-gpu
+pip install rembg  # or rembg[gpu] for GPU
 ```
 
 ---

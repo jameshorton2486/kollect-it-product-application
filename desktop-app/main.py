@@ -970,7 +970,7 @@ class KollectItApp(QMainWindow):
         price_layout = QHBoxLayout()
         self.price_spin = QDoubleSpinBox()
         self.price_spin.setRange(0, 999999.99)
-        self.price_spin.setPrefix("$ ")
+        self.price_spin.setPrefix("$ ")D
         self.price_spin.setDecimals(2)
         price_layout.addWidget(self.price_spin)
         
