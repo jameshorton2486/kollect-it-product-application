@@ -1,0 +1,185 @@
+```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#e94560', 'primaryTextColor': '#fff', 'primaryBorderColor': '#e94560', 'lineColor': '#a0a0a0', 'secondaryColor': '#16213e', 'tertiaryColor': '#1a1a2e'}}}%%
+
+flowchart TB
+    subgraph ENTRY["🚀 APPLICATION ENTRY POINTS"]
+        A[("👤 User launches<br/>Desktop App")] 
+        B[("⚙️ Automation Worker<br/>Background Service")]
+    end
+
+    subgraph CONFIG["📁 CONFIGURATION LAYER"]
+        C1[config.json]
+        C2[sku_state.json]
+        C1 --> |SERVICE_API_KEY| AUTH
+        C1 --> |ImageKit Keys| IK
+        C1 --> |Anthropic Key| AI
+        C1 --> |Categories| CAT
+    end
+
+    A --> LOAD
+    B --> WATCH
+
+    subgraph DESKTOP["🖥️ DESKTOP APPLICATION WORKFLOW"]
+        direction TB
+        LOAD[Load Configuration]
+        LOAD --> GUI[Initialize PyQt5 GUI<br/>Dark Theme]
+        
+        GUI --> INPUT{"Input Method?"}
+        INPUT -->|Drag & Drop| DROP[Receive Folder]
+        INPUT -->|Browse Button| BROWSE[File Dialog<br/>Default: G:\My Drive\Kollect-It\Products]
+        
+        DROP --> SCAN
+        BROWSE --> SCAN
+        
+        SCAN[Scan for Images<br/>jpg, png, webp, tiff, bmp]
+        SCAN --> PREVIEW[Display Image Thumbnails<br/>in Grid Layout]
+        
+        PREVIEW --> DETECT[Auto-Detect Category<br/>from Keywords/Folder Name]
+        DETECT --> SKU[Generate SKU<br/>PREFIX-YYYY-NNNN]
+    end
+
+    subgraph WORKER["⚙️ BACKGROUND WORKER WORKFLOW"]
+        direction TB
+        WATCH[Monitor Watch Folder<br/>Every 60 seconds]
+        WATCH --> CHECK{New Folders<br/>Detected?}
+        CHECK -->|No| WATCH
+        CHECK -->|Yes| QUEUE[Add to Processing Queue]
+        QUEUE --> AUTO_PROCESS[Auto-Process Each Folder]
+    end
+
+    SKU --> IMGPIPE
+    AUTO_PROCESS --> IMGPIPE
+
+    subgraph IMGPIPE["📸 IMAGE PROCESSING PIPELINE"]
+        direction TB
+        IMG1[Load Raw Images]
+        IMG1 --> IMG2{User Wants<br/>to Crop?}
+        IMG2 -->|Yes| CROP[Open Crop Dialog<br/>• Drag selection<br/>• Rule of thirds grid<br/>• Rotate/Flip<br/>• Zoom controls]
+        IMG2 -->|No| IMG3
+        CROP --> IMG3
+        
+        IMG3{AI Background<br/>Removal?}
+        IMG3 -->|Yes| BGREM[Remove Background<br/>• rembg/U2-Net AI<br/>• Strength: 0-100%<br/>• White/Gray/Transparent<br/>• Edge feathering]
+        IMG3 -->|No| IMG4
+        BGREM --> IMG4
+        
+        IMG4[Optimize Images]
+        IMG4 --> IMG5[Resize to Max 2400px<br/>Preserve Aspect Ratio]
+        IMG5 --> IMG6[Convert to WebP<br/>Quality: 88%]
+        IMG6 --> IMG7[Strip EXIF Metadata<br/>Auto-Orient]
+        IMG7 --> IMG8[Generate Thumbnails<br/>400px]
+        IMG8 --> PROCESSED[Save to /processed folder]
+    end
+
+    PROCESSED --> UPLOAD
+
+    subgraph UPLOAD["☁️ IMAGEKIT CDN UPLOAD"]
+        direction TB
+        IK[Initialize ImageKit Client]
+        IK --> IK1[Create Folder Structure<br/>/products/category/SKU/]
+        IK1 --> IK2[Upload Each WebP Image<br/>with Retry Logic]
+        IK2 --> IK3{Upload<br/>Success?}
+        IK3 -->|Yes| IK4[Store CDN URLs]
+        IK3 -->|No| IK5[Log Error<br/>Retry up to 3x]
+        IK5 --> IK2
+        IK4 --> URLS[Image URLs Ready<br/>https://ik.imagekit.io/kollectit/...]
+    end
+
+    URLS --> AIGEN
+
+    subgraph AIGEN["🤖 AI CONTENT GENERATION"]
+        direction TB
+        AI[Initialize Claude API<br/>claude-sonnet-4-20250514]
+        
+        AI --> CAT{Category?}
+        CAT -->|Militaria| T1[Load militaria_template.json]
+        CAT -->|Collectibles| T2[Load collectibles_template.json]
+        CAT -->|Books| T3[Load books_template.json]
+        CAT -->|Fine Art| T4[Load fineart_template.json]
+        
+        T1 --> GEN
+        T2 --> GEN
+        T3 --> GEN
+        T4 --> GEN
+        
+        GEN[Send Images + Context to Claude]
+        GEN --> DESC[Generate Description<br/>• Opening hook<br/>• Physical description<br/>• Historical context<br/>• Condition assessment<br/>• Collector appeal]
+        DESC --> SEO[Generate SEO Content<br/>• SEO Title ≤70 chars<br/>• Meta Description ≤160 chars<br/>• Keywords 8-12]
+        SEO --> VAL[Generate Valuation<br/>• Low estimate<br/>• High estimate<br/>• Recommended price<br/>• Market demand]
+    end
+
+    VAL --> REVIEW
+
+    subgraph REVIEW["✏️ USER REVIEW & EDIT"]
+        direction TB
+        REV1[Display Generated Content]
+        REV1 --> REV2[User Can Edit:<br/>• Title<br/>• Description<br/>• Price<br/>• Condition<br/>• Category<br/>• SEO fields]
+        REV2 --> REV3{Satisfied?}
+        REV3 -->|No| REV4[Regenerate with AI]
+        REV4 --> REV1
+        REV3 -->|Yes| READY[Ready to Publish]
+    end
+
+    READY --> PUBLISH
+
+    subgraph PUBLISH["🌐 PUBLISH TO WEBSITE"]
+        direction TB
+        AUTH[Authenticate with<br/>SERVICE_API_KEY]
+        AUTH --> PAYLOAD[Build Product Payload<br/>JSON]
+        
+        PAYLOAD --> VAL_CHECK{Validate<br/>Payload}
+        VAL_CHECK -->|Invalid| ERR1[Show Validation Errors]
+        VAL_CHECK -->|Valid| SEND[POST to /api/admin/products/service-create]
+        
+        SEND --> API_RESP{API Response}
+        API_RESP -->|201 Created| SUCCESS[✅ Product Published!<br/>Return URL + Product ID]
+        API_RESP -->|401 Unauthorized| ERR2[❌ Invalid API Key]
+        API_RESP -->|400 Bad Request| ERR3[❌ Validation Failed]
+        API_RESP -->|409 Conflict| ERR4[❌ Duplicate SKU]
+        API_RESP -->|500 Error| ERR5[❌ Server Error<br/>Retry]
+    end
+
+    SUCCESS --> COMPLETE
+
+    subgraph COMPLETE["✅ COMPLETION"]
+        direction TB
+        DONE1[Log Success]
+        DONE1 --> DONE2{Archive<br/>Enabled?}
+        DONE2 -->|Yes| ARCHIVE[Move Folder to /Completed]
+        DONE2 -->|No| DONE3
+        ARCHIVE --> DONE3[Reset Form for Next Product]
+        DONE3 --> NOTIFY[Show Success Message<br/>with Product URL]
+    end
+
+    subgraph NEXTJS["🔷 NEXT.JS BACKEND"]
+        direction TB
+        NJ1[Receive POST Request]
+        NJ1 --> NJ2{Validate<br/>x-api-key Header}
+        NJ2 -->|Invalid| NJ_401[Return 401 Unauthorized]
+        NJ2 -->|Valid| NJ3[Parse JSON Body]
+        NJ3 --> NJ4[Validate Required Fields]
+        NJ4 --> NJ5{SKU<br/>Exists?}
+        NJ5 -->|Yes| NJ_409[Return 409 Conflict]
+        NJ5 -->|No| NJ6[Generate URL Slug]
+        NJ6 --> NJ7[Create Product in Prisma DB]
+        NJ7 --> NJ8[Create Image Records]
+        NJ8 --> NJ_201[Return 201 + Product Data]
+    end
+
+    SEND -.-> NJ1
+    NJ_201 -.-> SUCCESS
+    NJ_401 -.-> ERR2
+    NJ_409 -.-> ERR4
+
+    classDef entry fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#16213e,stroke:#e94560,color:#fff
+    classDef decision fill:#0f3460,stroke:#e94560,color:#fff
+    classDef success fill:#48bb78,stroke:#fff,color:#fff
+    classDef error fill:#fc8181,stroke:#fff,color:#fff
+    classDef config fill:#1f3460,stroke:#a0a0a0,color:#fff
+
+    class A,B entry
+    class SUCCESS,DONE3,NOTIFY success
+    class ERR1,ERR2,ERR3,ERR4,ERR5,NJ_401,NJ_409 error
+    class C1,C2 config
+```
