@@ -532,6 +532,7 @@ class DropZone(QFrame):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.browse_btn = None  # Initialize attribute
         self.setAcceptDrops(True)
         self.setMinimumHeight(200)
         self.setup_ui()
@@ -549,12 +550,12 @@ class DropZone(QFrame):
         """)
         
         layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setAlignment(Qt.AlignCenter)  # type: ignore
         
         # Icon placeholder
         icon_label = QLabel("📁")
         icon_label.setStyleSheet("font-size: 48px; border: none;")
-        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setAlignment(Qt.AlignCenter)  # type: ignore
         layout.addWidget(icon_label)
         
         # Main text
@@ -566,7 +567,7 @@ class DropZone(QFrame):
                 font-weight: bold;
             }
         """)
-        main_text.setAlignment(Qt.AlignCenter)
+        main_text.setAlignment(Qt.AlignCenter)  # type: ignore
         layout.addWidget(main_text)
         
         # Sub text
@@ -577,14 +578,14 @@ class DropZone(QFrame):
                 font-size: 14px;
             }
         """)
-        sub_text.setAlignment(Qt.AlignCenter)
+        sub_text.setAlignment(Qt.AlignCenter)  # type: ignore
         layout.addWidget(sub_text)
         
         # Browse button
         self.browse_btn = QPushButton("Browse Folder")
         self.browse_btn.setMaximumWidth(200)
         self.browse_btn.clicked.connect(self.browse_folder)
-        layout.addWidget(self.browse_btn, alignment=Qt.AlignCenter)
+        layout.addWidget(self.browse_btn, alignment=Qt.AlignCenter)  # type: ignore
         
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -653,7 +654,7 @@ class ImageThumbnail(QLabel):
         super().__init__(parent)
         self.image_path = image_path
         self.setFixedSize(120, 120)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.PointingHandCursor)  # type: ignore
         self.load_image()
         
     def load_image(self):
@@ -661,8 +662,8 @@ class ImageThumbnail(QLabel):
         if not pixmap.isNull():
             scaled = pixmap.scaled(
                 self.size(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
+                Qt.KeepAspectRatio,  # type: ignore
+                Qt.SmoothTransformation  # type: ignore
             )
             self.setPixmap(scaled)
         self.setStyleSheet(f"""
@@ -678,9 +679,9 @@ class ImageThumbnail(QLabel):
         """)
     
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton:  # type: ignore
             self.clicked.emit(self.image_path)
-        elif event.button() == Qt.RightButton:
+        elif event.button() == Qt.RightButton:  # type: ignore
             self.show_context_menu(event.pos())
     
     def show_context_menu(self, pos):
@@ -762,6 +763,52 @@ class KollectItApp(QMainWindow):
         self.uploaded_image_urls = []  # Store URLs after ImageKit upload
         self.processing_thread = None
         
+        # Initialize UI component attributes
+        self.drop_zone = None
+        self.image_grid = None
+        self.image_grid_layout = None
+        self.crop_all_btn = None
+        self.remove_bg_btn = None
+        self.optimize_btn = None
+        self.upload_btn = None
+        self.publish_btn = None
+        self.title_edit = None
+        self.sku_edit = None
+        self.category_combo = None
+        self.subcategory_combo = None
+        self.price_spin = None
+        self.original_price_spin = None
+        self.condition_combo = None
+        self.era_edit = None
+        self.origin_edit = None
+        self.description_edit = None
+        self.generate_desc_btn = None
+        self.generate_valuation_btn = None
+        self.seo_title_edit = None
+        self.seo_desc_edit = None
+        self.seo_keywords_edit = None
+        self.bg_removal_check = None
+        self.bg_strength_slider = None
+        self.auto_publish_check = None
+        self.use_production_check = None
+        self.progress_bar = None
+        self.status_label = None
+        self.log_output = None
+        self.regenerate_sku_btn = None
+        
+        # Settings dialog attributes
+        self.api_key_edit = None
+        self.prod_url_edit = None
+        self.use_prod_check = None
+        self.ik_public_edit = None
+        self.ik_private_edit = None
+        self.ik_url_edit = None
+        self.ai_key_edit = None
+        self.ai_model_edit = None
+        self.max_dim_spin = None
+        self.quality_spin = None
+        self.strip_exif_check = None
+        
         self.setup_ui()
         self.setup_menu()
         self.setup_toolbar()
@@ -770,7 +817,6 @@ class KollectItApp(QMainWindow):
     def load_config(self) -> dict:
         """Load configuration from config.json with validation."""
         config_path = Path(__file__).parent / "config" / "config.json"
-        example_path = Path(__file__).parent / "config" / "config.example.json"
         
         # Check if config exists
         if not config_path.exists():
@@ -970,7 +1016,7 @@ class KollectItApp(QMainWindow):
         price_layout = QHBoxLayout()
         self.price_spin = QDoubleSpinBox()
         self.price_spin.setRange(0, 999999.99)
-        self.price_spin.setPrefix("$ ")D
+        self.price_spin.setPrefix("$ "),
         self.price_spin.setDecimals(2)
         price_layout.addWidget(self.price_spin)
         
@@ -1312,7 +1358,7 @@ class KollectItApp(QMainWindow):
                         self.log(f"Auto-detected category: {cat_id}", "info")
                         return
         
-    def on_category_changed(self, index: int):
+    def on_category_changed(self, _index: int):
         """Handle category selection change."""
         self.update_subcategories()
         if self.current_folder:
@@ -1378,7 +1424,7 @@ class KollectItApp(QMainWindow):
         """Open crop dialog for an image."""
         dialog = CropDialog(image_path, self)
         if dialog.exec_() == QDialog.Accepted:
-            cropped_path = dialog.get_cropped_path()
+            _cropped_path = dialog.get_cropped_path()  # Path is used implicitly by reload
             self.log(f"Cropped: {os.path.basename(image_path)}", "success")
             self.load_images_from_folder(self.current_folder)
             
