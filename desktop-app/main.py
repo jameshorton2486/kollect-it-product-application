@@ -99,7 +99,7 @@ class DarkPalette:
                 background-color: {cls.BACKGROUND};
                 color: {cls.TEXT};
                 font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             /* ============================================
@@ -113,7 +113,7 @@ class DarkPalette:
                 padding: 16px;
                 padding-top: 24px;
                 font-weight: bold;
-                font-size: 15px;
+                font-size: 17px;
             }}
             
             QGroupBox::title {{
@@ -122,7 +122,7 @@ class DarkPalette:
                 top: 4px;
                 padding: 0 10px;
                 color: {cls.PRIMARY};
-                font-size: 15px;
+                font-size: 17px;
                 font-weight: bold;
             }}
             
@@ -136,7 +136,7 @@ class DarkPalette:
                 border-radius: 6px;
                 padding: 12px 24px;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 16px;
                 min-height: 24px;
             }}
             
@@ -170,7 +170,7 @@ class DarkPalette:
                 border-radius: 6px;
                 padding: 10px 14px;
                 color: {cls.TEXT};
-                font-size: 14px;
+                font-size: 16px;
                 min-height: 20px;
             }}
             
@@ -210,7 +210,7 @@ class DarkPalette:
                 color: {cls.TEXT};
                 selection-background-color: {cls.SURFACE_LIGHT};
                 padding: 4px;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QComboBox QAbstractItemView::item {{
@@ -246,7 +246,7 @@ class DarkPalette:
                 border-radius: 6px;
                 height: 12px;
                 text-align: center;
-                font-size: 11px;
+                font-size: 13px;
                 color: {cls.TEXT};
             }}
             
@@ -263,7 +263,7 @@ class DarkPalette:
                 border: 2px solid {cls.BORDER};
                 border-radius: 6px;
                 padding: 6px;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QListWidget::item {{
@@ -298,7 +298,7 @@ class DarkPalette:
                 margin-right: 4px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 border: 2px solid transparent;
                 border-bottom: none;
@@ -357,22 +357,22 @@ class DarkPalette:
                ============================================ */
             QLabel {{
                 color: {cls.TEXT};
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QLabel.title {{
-                font-size: 28px;
+                font-size: 30px;
                 font-weight: bold;
                 color: {cls.PRIMARY};
             }}
             
             QLabel.subtitle {{
-                font-size: 16px;
+                font-size: 18px;
                 color: {cls.TEXT_SECONDARY};
             }}
             
             QLabel.section-header {{
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
                 color: {cls.PRIMARY};
             }}
@@ -383,7 +383,7 @@ class DarkPalette:
             QCheckBox {{
                 color: {cls.TEXT};
                 spacing: 10px;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QCheckBox::indicator {{
@@ -435,7 +435,7 @@ class DarkPalette:
             QStatusBar {{
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT};
-                font-size: 13px;
+                font-size: 15px;
                 padding: 6px;
                 border-top: 1px solid {cls.BORDER};
             }}
@@ -447,7 +447,7 @@ class DarkPalette:
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT};
                 padding: 6px;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QMenuBar::item {{
@@ -464,7 +464,7 @@ class DarkPalette:
                 border: 2px solid {cls.BORDER};
                 border-radius: 8px;
                 padding: 6px;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QMenu::item {{
@@ -498,7 +498,7 @@ class DarkPalette:
                 color: {cls.TEXT};
                 padding: 8px 14px;
                 border-radius: 6px;
-                font-size: 14px;
+                font-size: 16px;
             }}
             
             QToolBar QToolButton:hover {{
@@ -509,7 +509,7 @@ class DarkPalette:
                TEXT EDIT - Activity log, descriptions
                ============================================ */
             QTextEdit {{
-                font-size: 14px;
+                font-size: 16px;
                 line-height: 1.5;
             }}
             
@@ -517,7 +517,7 @@ class DarkPalette:
                FORM LABELS - Row labels
                ============================================ */
             QFormLayout QLabel {{
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: 500;
                 color: {cls.TEXT_SECONDARY};
                 min-width: 90px;
@@ -532,7 +532,7 @@ class DarkPalette:
                 border: 1px solid {cls.BORDER};
                 border-radius: 4px;
                 padding: 8px;
-                font-size: 13px;
+                font-size: 15px;
             }}
         """
 
@@ -575,7 +575,7 @@ class DropZone(QFrame):
         main_text.setStyleSheet("""
             QLabel {
                 color: #ffffff;
-                font-size: 18px;
+                font-size: 20px;
                 font-weight: bold;
             }
         """)
@@ -587,7 +587,7 @@ class DropZone(QFrame):
         sub_text.setStyleSheet("""
             QLabel {
                 color: #b4b4b4;
-                font-size: 14px;
+                font-size: 16px;
             }
         """)
         sub_text.setAlignment(Qt.AlignCenter)  # type: ignore
@@ -926,7 +926,7 @@ class KollectItApp(QMainWindow):
             QPushButton {
                 background-color: #48bb78;
                 color: white;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 border-radius: 8px;
             }
@@ -1187,7 +1187,7 @@ class KollectItApp(QMainWindow):
         self.log_output.setStyleSheet(f"""
             QTextEdit {{
                 font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 11px;
+                font-size: 13px;
                 background-color: {DarkPalette.BACKGROUND};
             }}
         """)
