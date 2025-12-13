@@ -39,14 +39,15 @@ from PyQt5.QtGui import (
 )
 
 # Import custom modules
-from modules.image_processor import ImageProcessor
-from modules.imagekit_uploader import ImageKitUploader
-from modules.sku_generator import SKUGenerator
-from modules.ai_engine import AIEngine
-from modules.product_publisher import ProductPublisher
-from modules.background_remover import BackgroundRemover
-from modules.crop_tool import CropDialog
-from modules.import_wizard import ImportWizard
+# pyright: reportMissingImports=false
+from modules.image_processor import ImageProcessor  # type: ignore
+from modules.imagekit_uploader import ImageKitUploader  # type: ignore
+from modules.sku_generator import SKUGenerator  # type: ignore
+from modules.ai_engine import AIEngine  # type: ignore
+from modules.product_publisher import ProductPublisher  # type: ignore
+from modules.background_remover import BackgroundRemover  # type: ignore
+from modules.crop_tool import CropDialog  # type: ignore
+from modules.import_wizard import ImportWizard  # type: ignore
 
 
 class DarkPalette:
@@ -1476,7 +1477,7 @@ class KollectItApp(QMainWindow):
             return
         
         # Check rembg installation
-        from modules.background_remover import REMBG_AVAILABLE, check_rembg_installation
+        from modules.background_remover import REMBG_AVAILABLE, check_rembg_installation  # type: ignore
         status = check_rembg_installation()
         
         if not REMBG_AVAILABLE:
@@ -1496,7 +1497,7 @@ class KollectItApp(QMainWindow):
         self.progress_bar.setValue(0)
         self.status_label.setText("Removing backgrounds...")
         
-        from modules.background_remover import BackgroundRemover
+        from modules.background_remover import BackgroundRemover  # type: ignore
         remover = BackgroundRemover(self.config)
         
         strength = self.bg_strength_slider.value() / 100
