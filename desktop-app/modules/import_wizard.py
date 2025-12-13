@@ -20,7 +20,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QImage, QFont, QIcon
 
-from PIL import Image
+from PIL import Image, ImageOps
+from io import BytesIO
 
 
 class CategoryButton(QPushButton):
@@ -77,17 +78,19 @@ class PhotoThumbnail(QFrame):
         self.file_path = file_path
         self.selected = False
         
-        self.setFixedSize(130, 150)
+        # Larger size for better visibility (large icons)
+        self.setFixedSize(200, 240)
         self.setCursor(Qt.PointingHandCursor)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
         
-        # Thumbnail image
+        # Thumbnail image - much larger for visibility
         self.image_label = QLabel()
-        self.image_label.setFixedSize(120, 100)
+        self.image_label.setFixedSize(188, 200)
         self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setScaledContents(True)  # Scale image to fit
         self.image_label.setStyleSheet("""
             QLabel {
                 background-color: #0f0f1a;
@@ -96,13 +99,14 @@ class PhotoThumbnail(QFrame):
         """)
         layout.addWidget(self.image_label)
         
-        # Filename label
+        # Filename label - show more characters for larger view
         filename = Path(file_path).name
-        if len(filename) > 15:
-            filename = filename[:12] + "..."
+        if len(filename) > 20:
+            filename = filename[:17] + "..."
         self.name_label = QLabel(filename)
         self.name_label.setAlignment(Qt.AlignCenter)
-        self.name_label.setStyleSheet("color: #a0a0a0; font-size: 10px;")
+        self.name_label.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+        self.name_label.setWordWrap(True)
         layout.addWidget(self.name_label)
         
         # Checkbox
@@ -124,25 +128,55 @@ class PhotoThumbnail(QFrame):
         self.load_thumbnail()
     
     def load_thumbnail(self):
-        """Load and display thumbnail."""
+        """Load and display thumbnail with large icon view."""
         try:
             with Image.open(self.file_path) as img:
+                # Auto-rotate based on EXIF orientation
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
+                
                 # Convert to RGB if needed
-                if img.mode in ('RGBA', 'P'):
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # Create white background for transparency
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'RGBA':
+                        background.paste(img, mask=img.split()[3])  # Use alpha channel as mask
+                    else:
+                        background.paste(img)
+                    img = background
+                elif img.mode != 'RGB':
                     img = img.convert('RGB')
                 
-                # Create thumbnail
-                img.thumbnail((120, 100), Image.Resampling.LANCZOS)
+                # Create larger thumbnail for better visibility (large icons)
+                # Keep aspect ratio, scale to fit 188x200
+                img.thumbnail((188, 200), Image.Resampling.LANCZOS)
                 
-                # Convert to QPixmap
-                data = img.tobytes("raw", "RGB")
-                qimg = QImage(data, img.width, img.height, img.width * 3, QImage.Format_RGB888)
-                pixmap = QPixmap.fromImage(qimg)
+                # Convert PIL Image to QPixmap
+                # Method 1: Save to bytes and load (more reliable)
+                from io import BytesIO
+                buffer = BytesIO()
+                img.save(buffer, format='PNG')
+                buffer.seek(0)
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
                 
-                self.image_label.setPixmap(pixmap)
+                # If that fails, try direct conversion
+                if pixmap.isNull():
+                    data = img.tobytes("raw", "RGB")
+                    qimg = QImage(data, img.width, img.height, img.width * 3, QImage.Format_RGB888)
+                    pixmap = QPixmap.fromImage(qimg)
+                
+                # Set pixmap (scaledContents is already True, so it will auto-scale)
+                if not pixmap.isNull():
+                    self.image_label.setPixmap(pixmap)
+                else:
+                    raise Exception("Failed to create pixmap")
+                    
         except Exception as e:
-            self.image_label.setText("Error")
-            print(f"Error loading thumbnail: {e}")
+            self.image_label.clear()
+            self.image_label.setText("Error\nLoading")
+            self.image_label.setStyleSheet("color: #fc8181; font-size: 10px;")
+            print(f"Error loading thumbnail for {self.file_path}: {e}")
     
     def mousePressEvent(self, event):
         """Handle click to toggle selection."""
@@ -338,13 +372,16 @@ class ImportWizard(QDialog):
         source_label.setStyleSheet("color: #a0a0a0;")
         source_layout.addWidget(source_label)
         
-        camera_path = self.config.get("paths", {}).get("camera_import", "E:/DCIM/100CANON")
-        self.source_path_label = QLabel(camera_path)
+        # Use Windows path format with backslashes
+        camera_path = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
+        # Normalize path separators for display
+        camera_path_display = camera_path.replace("/", "\\")
+        self.source_path_label = QLabel(camera_path_display)
         self.source_path_label.setStyleSheet("color: #eaeaea;")
         source_layout.addWidget(self.source_path_label)
         source_layout.addStretch()
         
-        self.change_source_btn = QPushButton("Change Folder")
+        self.change_source_btn = QPushButton("Browse Folder...")
         self.change_source_btn.setStyleSheet("""
             QPushButton {
                 background-color: #16213e;
@@ -393,10 +430,10 @@ class ImportWizard(QDialog):
         
         photo_layout.addLayout(sel_layout)
         
-        # Photo grid (scrollable)
+        # Photo grid (scrollable) - larger for better visibility
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setMinimumHeight(200)
+        scroll.setMinimumHeight(400)  # Increased height for large icons
         scroll.setStyleSheet("""
             QScrollArea {
                 border: 1px solid #2d3748;
@@ -407,8 +444,8 @@ class ImportWizard(QDialog):
         
         self.photo_grid_widget = QWidget()
         self.photo_grid = QGridLayout(self.photo_grid_widget)
-        self.photo_grid.setSpacing(8)
-        self.photo_grid.setContentsMargins(8, 8, 8, 8)
+        self.photo_grid.setSpacing(12)  # More spacing for larger icons
+        self.photo_grid.setContentsMargins(12, 12, 12, 12)
         scroll.setWidget(self.photo_grid_widget)
         
         photo_layout.addWidget(scroll)
@@ -527,8 +564,11 @@ class ImportWizard(QDialog):
         self.photo_thumbnails = []
         self.selected_photos = []
         
-        camera_path = self.config.get("paths", {}).get("camera_import", "E:/DCIM/100CANON")
-        self.source_path_label.setText(camera_path)
+        # Use Windows path format with backslashes
+        camera_path = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
+        # Normalize path separators for display
+        camera_path_display = camera_path.replace("/", "\\")
+        self.source_path_label.setText(camera_path_display)
         
         folder = Path(camera_path)
         
@@ -560,8 +600,8 @@ class ImportWizard(QDialog):
             self.photo_grid.addWidget(no_photos, 0, 0)
             return
         
-        # Create thumbnails (grid: 5 columns)
-        cols = 5
+        # Create thumbnails (grid: 4 columns for larger icons)
+        cols = 4
         for i, img_path in enumerate(images):
             row = i // cols
             col = i % cols
@@ -580,7 +620,9 @@ class ImportWizard(QDialog):
         """Open dialog to change source folder."""
         from PyQt5.QtWidgets import QFileDialog
         
-        current = self.config.get("paths", {}).get("camera_import", "E:/DCIM/100CANON")
+        # Get current path, normalize to Windows format
+        current = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
+        current = current.replace("/", "\\")
         
         folder = QFileDialog.getExistingDirectory(
             self, "Select Camera/Source Folder",
@@ -588,10 +630,10 @@ class ImportWizard(QDialog):
         )
         
         if folder:
-            # Update config temporarily
+            # Update config temporarily (store with backslashes for Windows)
             if "paths" not in self.config:
                 self.config["paths"] = {}
-            self.config["paths"]["camera_import"] = folder
+            self.config["paths"]["camera_import"] = folder.replace("/", "\\")
             
             # Reload photos
             self.load_photos()

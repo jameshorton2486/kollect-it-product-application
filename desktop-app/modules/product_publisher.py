@@ -5,6 +5,7 @@ Handles publishing products to the Kollect-It website via the service API.
 """
 
 import json
+import os
 from typing import Dict, Any, Optional
 import requests
 
@@ -21,8 +22,16 @@ class ProductPublisher:
         self.config = config
         api_config = config.get("api", {})
         
-        self.api_key = api_config.get("SERVICE_API_KEY", "")
+        # Check .env first, fallback to config.json
+        self.api_key = os.getenv("SERVICE_API_KEY") or api_config.get("SERVICE_API_KEY", "")
         self.use_local = api_config.get("use_local", False)
+        
+        # Check .env for production flag override
+        use_prod_env = os.getenv("USE_PRODUCTION", "").lower()
+        if use_prod_env in ("true", "1", "yes"):
+            self.use_local = False
+        elif use_prod_env in ("false", "0", "no"):
+            self.use_local = True
         
         # Build base URL from config
         if self.use_local:

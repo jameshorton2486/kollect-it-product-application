@@ -20,3 +20,6 @@ python-docx>=0.8.11
 # Anthropic API (for AI descriptions)
 # Note: Using SDK is recommended but requests fallback is available
 anthropic>=0.18.0
+
+# Environment variable loading
+python-dotenv>=1.0.0

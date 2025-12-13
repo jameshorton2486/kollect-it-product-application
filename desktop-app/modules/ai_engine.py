@@ -41,9 +41,18 @@ class AIEngine:
         
         self.provider = ai_config.get("provider", "anthropic")
         self.model = ai_config.get("model", "claude-sonnet-4-20250514")
-        self.api_key = ai_config.get("api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
+        # Check .env first, fallback to config.json
+        self.api_key = os.getenv("ANTHROPIC_API_KEY") or ai_config.get("api_key", "")
         self.max_tokens = ai_config.get("max_tokens", 4000)
-        self.temperature = ai_config.get("temperature", 0.7)
+        # Check .env for temperature override, fallback to config.json
+        temp_str = os.getenv("AI_TEMPERATURE")
+        if temp_str:
+            try:
+                self.temperature = float(temp_str)
+            except ValueError:
+                self.temperature = ai_config.get("temperature", 0.3)
+        else:
+            self.temperature = ai_config.get("temperature", 0.3)
         
         self.templates_dir = Path(__file__).parent.parent / "templates"
         

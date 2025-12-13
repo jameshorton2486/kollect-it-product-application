@@ -21,6 +21,17 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+# Load environment variables from .env file (if available)
+try:
+    from dotenv import load_dotenv
+    # Load .env from desktop-app directory
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+except ImportError:
+    # python-dotenv not installed, continue without .env support
+    pass
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QProgressBar, QTextEdit, QComboBox,
@@ -816,7 +827,7 @@ class KollectItApp(QMainWindow):
         self.setup_statusbar()
         
     def load_config(self) -> dict:
-        """Load configuration from config.json with validation."""
+        """Load configuration from config.json with validation and .env override."""
         config_path = Path(__file__).parent / "config" / "config.json"
         
         # Check if config exists
@@ -835,8 +846,14 @@ class KollectItApp(QMainWindow):
         
         # Try to parse config
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+            # Try to load with .env support
+            try:
+                from modules.env_loader import load_config_with_env
+                config = load_config_with_env(config_path)
+            except ImportError:
+                # Fallback to standard JSON loading if env_loader not available
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
         except json.JSONDecodeError as e:
             QMessageBox.critical(
                 None, "Configuration Error",
@@ -861,12 +878,13 @@ class KollectItApp(QMainWindow):
                 "Some features may not work correctly."
             )
         
-        # Validate API keys are not placeholder values
-        api_key = config.get("api", {}).get("SERVICE_API_KEY", "")
-        if not api_key or api_key == "YOUR_SERVICE_API_KEY_HERE":
+        # Validate API keys are not placeholder values (check .env first, then config)
+        api_key = os.getenv("SERVICE_API_KEY") or config.get("api", {}).get("SERVICE_API_KEY", "")
+        if not api_key or api_key in ("YOUR_SERVICE_API_KEY_HERE", ""):
             QMessageBox.warning(
                 None, "Configuration Warning",
                 "SERVICE_API_KEY is not configured.\n\n"
+                "Add it to .env file or config.json.\n"
                 "Publishing to the website will not work until you add your API key."
             )
         
