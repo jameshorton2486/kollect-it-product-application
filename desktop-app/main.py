@@ -1383,16 +1383,18 @@ class KollectItApp(QMainWindow):
         """Generate a new SKU for the current category."""
         cat_id = self.category_combo.currentData()
         if not cat_id:
+            self.log("No category selected - cannot generate SKU", "warning")
             return
             
         try:
-            generator = SKUGenerator(
-                Path(__file__).parent / "config" / "sku_state.json"
-            )
+            state_file_path = Path(__file__).parent / "config" / "sku_state.json"
+            generator = SKUGenerator(str(state_file_path))
             prefix = self.config["categories"][cat_id]["prefix"]
             sku = generator.generate(prefix)
             self.sku_edit.setText(sku)
             self.log(f"Generated SKU: {sku}", "info")
+        except KeyError as e:
+            self.log(f"Category '{cat_id}' not found in config: {e}", "error")
         except Exception as e:
             self.log(f"SKU generation error: {e}", "error")
             
@@ -1607,9 +1609,14 @@ class KollectItApp(QMainWindow):
         try:
             engine = AIEngine(self.config)
             
+            category = self.category_combo.currentData()
+            if not category:
+                QMessageBox.warning(self, "No Category", "Please select a category first.")
+                return
+            
             product_data = {
                 "title": self.title_edit.text(),
-                "category": self.category_combo.currentData(),
+                "category": category,
                 "subcategory": self.subcategory_combo.currentText(),
                 "condition": self.condition_combo.currentText(),
                 "era": self.era_edit.text(),
@@ -1644,9 +1651,14 @@ class KollectItApp(QMainWindow):
         try:
             engine = AIEngine(self.config)
             
+            category = self.category_combo.currentData()
+            if not category:
+                QMessageBox.warning(self, "No Category", "Please select a category first.")
+                return
+            
             product_data = {
                 "title": self.title_edit.text(),
-                "category": self.category_combo.currentData(),
+                "category": category,
                 "condition": self.condition_combo.currentText(),
                 "era": self.era_edit.text(),
                 "description": self.description_edit.toPlainText(),
@@ -1685,7 +1697,15 @@ class KollectItApp(QMainWindow):
             uploader = ImageKitUploader(self.config)
             
             category = self.category_combo.currentData()
+            if not category:
+                QMessageBox.warning(self, "No Category", "Please select a category first.")
+                return
+            
             sku = self.sku_edit.text()
+            if not sku:
+                QMessageBox.warning(self, "No SKU", "Please generate a SKU first.")
+                return
+            
             folder = f"products/{category}/{sku}"
             
             uploaded_urls = []
@@ -1741,11 +1761,22 @@ class KollectItApp(QMainWindow):
         try:
             publisher = ProductPublisher(self.config)
             
+            # Validate required fields
+            category = self.category_combo.currentData()
+            if not category:
+                QMessageBox.warning(self, "Missing Category", "Please select a category.")
+                return
+            
+            sku = self.sku_edit.text()
+            if not sku:
+                QMessageBox.warning(self, "Missing SKU", "Please generate a SKU.")
+                return
+            
             # Build product payload
             product_data = {
                 "title": self.title_edit.text(),
-                "sku": self.sku_edit.text(),
-                "category": self.category_combo.currentData(),
+                "sku": sku,
+                "category": category,
                 "subcategory": self.subcategory_combo.currentText(),
                 "description": self.description_edit.toPlainText(),
                 "descriptionHtml": f"<p>{self.description_edit.toPlainText()}</p>",
