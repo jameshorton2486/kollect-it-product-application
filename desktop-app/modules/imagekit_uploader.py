@@ -29,8 +29,9 @@ class ImageKitUploader:
         self.config = config
         ik_config = config.get("imagekit", {})
         
-        self.public_key = ik_config.get("public_key", "")
-        self.private_key = ik_config.get("private_key", "")
+        # Check .env first, fallback to config.json
+        self.public_key = os.getenv("IMAGEKIT_PUBLIC_KEY") or ik_config.get("public_key", "")
+        self.private_key = os.getenv("IMAGEKIT_PRIVATE_KEY") or ik_config.get("private_key", "")
         self.url_endpoint = ik_config.get("url_endpoint", "")
         self.upload_folder = ik_config.get("upload_folder", "products")
         
