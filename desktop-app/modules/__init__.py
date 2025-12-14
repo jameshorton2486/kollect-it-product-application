@@ -23,6 +23,7 @@ from .background_remover import BackgroundRemover
 from .crop_tool import CropDialog
 from .config_validator import ConfigValidator
 from .output_generator import OutputGenerator
+from .import_wizard import ImportWizard
 
 __all__ = [
     'ImageProcessor',
@@ -33,7 +34,8 @@ __all__ = [
     'BackgroundRemover',
     'CropDialog',
     'ConfigValidator',
-    'OutputGenerator'
+    'OutputGenerator',
+    'ImportWizard'
 ]
 
 __version__ = '1.0.0'
