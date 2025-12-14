@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Kollect-It Product Manager
-Desktop application for processing, optimizing, and publishing antiques/collectibles listings.
+Desktop application for processing and optimizing antiques/collectibles listings.
 
 Features:
 - Drag-and-drop product folder processing
@@ -10,7 +10,6 @@ Features:
 - Built-in image cropping tool
 - AI background removal
 - ImageKit cloud upload
-- Direct website publishing via API
 - SKU generation per category
 """
 
@@ -57,7 +56,6 @@ from modules.image_processor import ImageProcessor  # type: ignore
 from modules.imagekit_uploader import ImageKitUploader  # type: ignore
 from modules.sku_generator import SKUGenerator  # type: ignore
 from modules.ai_engine import AIEngine  # type: ignore
-from modules.product_publisher import ProductPublisher  # type: ignore
 from modules.background_remover import BackgroundRemover  # type: ignore
 from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
@@ -862,13 +860,11 @@ class KollectItApp(QMainWindow):
         self.remove_bg_btn = None
         self.optimize_btn = None
         self.upload_btn = None
-        self.publish_btn = None
         self.title_edit = None
         self.sku_edit = None
         self.category_combo = None
         self.subcategory_combo = None
         self.price_spin = None
-        self.original_price_spin = None
         self.condition_combo = None
         self.era_edit = None
         self.origin_edit = None
@@ -880,8 +876,6 @@ class KollectItApp(QMainWindow):
         self.seo_keywords_edit = None
         self.bg_removal_check = None
         self.bg_strength_slider = None
-        self.auto_publish_check = None
-        self.use_production_check = None
         self.progress_bar = None
         self.status_label = None
         self.log_output = None
@@ -963,8 +957,7 @@ class KollectItApp(QMainWindow):
             QMessageBox.warning(
                 None, "Configuration Warning",
                 "SERVICE_API_KEY is not configured.\n\n"
-                "Add it to .env file or config.json.\n"
-                "Publishing to the website will not work until you add your API key."
+                "Add it to .env file or config.json if needed for future features."
             )
 
         return config
@@ -1117,13 +1110,6 @@ class KollectItApp(QMainWindow):
         self.price_spin.setPrefix("$ "),
         self.price_spin.setDecimals(2)
         price_layout.addWidget(self.price_spin)
-
-        self.original_price_spin = QDoubleSpinBox()
-        self.original_price_spin.setRange(0, 999999.99)
-        self.original_price_spin.setPrefix("$ ")
-        self.original_price_spin.setDecimals(2)
-        self.original_price_spin.setSpecialValueText("Optional")
-        price_layout.addWidget(self.original_price_spin)
         form.addRow("Price:", price_layout)
 
         # Condition
@@ -1204,15 +1190,6 @@ class KollectItApp(QMainWindow):
         self.bg_strength_slider.setValue(80)
         settings_layout.addRow("BG Removal Strength:", self.bg_strength_slider)
 
-        self.auto_publish_check = QCheckBox("Auto-publish after processing")
-        settings_layout.addRow(self.auto_publish_check)
-
-        self.use_production_check = QCheckBox("Use Production API")
-        self.use_production_check.setChecked(
-            self.config.get("api", {}).get("use_production", True)
-        )
-        settings_layout.addRow(self.use_production_check)
-
         tabs.addTab(settings_tab, "⚙️ Settings")
 
         right_layout.addWidget(tabs)
@@ -1238,21 +1215,6 @@ class KollectItApp(QMainWindow):
         self.upload_btn.setEnabled(False)
         self.upload_btn.clicked.connect(self.upload_to_imagekit)
         actions_layout.addWidget(self.upload_btn)
-
-        self.publish_btn = QPushButton("🚀 Publish Product")
-        self.publish_btn.setEnabled(False)
-        self.publish_btn.clicked.connect(self.publish_product)
-        self.publish_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DarkPalette.SUCCESS};
-                font-size: 15px;
-                padding: 14px 28px;
-            }}
-            QPushButton:hover {{
-                background-color: #38a169;
-            }}
-        """)
-        actions_layout.addWidget(self.publish_btn)
 
         right_layout.addLayout(actions_layout)
 
@@ -1352,7 +1314,6 @@ class KollectItApp(QMainWindow):
         toolbar.addAction("📂 Open", self.open_folder)
         toolbar.addAction("⚡ Process", self.optimize_images)
         toolbar.addAction("☁️ Upload", self.upload_to_imagekit)
-        toolbar.addAction("🚀 Publish", self.publish_product)
 
     def setup_statusbar(self):
         """Set up the status bar."""
@@ -1851,93 +1812,12 @@ class KollectItApp(QMainWindow):
                 QApplication.processEvents()  # Keep UI responsive
 
             self.log(f"Uploaded {len(uploaded_urls)} images to ImageKit", "success")
-            self.publish_btn.setEnabled(True)
 
-            # Store URLs for publishing
+            # Store URLs
             self.uploaded_image_urls = uploaded_urls
 
         except Exception as e:
             self.log(f"Upload error: {e}", "error")
-
-        self.status_label.setText("Ready")
-
-    def publish_product(self):
-        """Publish the product to the website."""
-        # Validate required fields
-        if not self.title_edit.text():
-            QMessageBox.warning(self, "Missing Title", "Please enter a product title.")
-            return
-
-        if not self.description_edit.toPlainText():
-            QMessageBox.warning(self, "Missing Description", "Please generate or enter a description.")
-            return
-
-        if self.price_spin.value() <= 0:
-            QMessageBox.warning(self, "Missing Price", "Please set a price.")
-            return
-
-        self.log("Publishing product...", "info")
-        self.status_label.setText("Publishing to website...")
-
-        try:
-            publisher = ProductPublisher(self.config)
-
-            # Validate required fields
-            category = self.category_combo.currentData()
-            if not category:
-                QMessageBox.warning(self, "Missing Category", "Please select a category.")
-                return
-
-            sku = self.sku_edit.text()
-            if not sku:
-                QMessageBox.warning(self, "Missing SKU", "Please generate a SKU.")
-                return
-
-            # Build product payload
-            product_data = {
-                "title": self.title_edit.text(),
-                "sku": sku,
-                "category": category,
-                "subcategory": self.subcategory_combo.currentText(),
-                "description": self.description_edit.toPlainText(),
-                "descriptionHtml": f"<p>{self.description_edit.toPlainText()}</p>",
-                "price": self.price_spin.value(),
-                "originalPrice": self.original_price_spin.value() or None,
-                "condition": self.condition_combo.currentText(),
-                "era": self.era_edit.text() or None,
-                "origin": self.origin_edit.text() or None,
-                "images": [
-                    {"url": url, "alt": f"{self.title_edit.text()} - Image {i+1}", "order": i}
-                    for i, url in enumerate(getattr(self, 'uploaded_image_urls', []))
-                ],
-                "seoTitle": self.seo_title_edit.text() or self.title_edit.text(),
-                "seoDescription": self.seo_desc_edit.toPlainText() or self.description_edit.toPlainText()[:160],
-                "seoKeywords": [k.strip() for k in self.seo_keywords_edit.text().split(",") if k.strip()],
-                "status": "draft"
-            }
-
-            result = publisher.publish(product_data)
-
-            if result.get("success"):
-                product_url = result.get("product", {}).get("url", "")
-                self.log(f"✅ Product published! URL: {product_url}", "success")
-
-                QMessageBox.information(
-                    self, "Success!",
-                    f"Product published successfully!\n\nSKU: {self.sku_edit.text()}\nURL: {product_url}"
-                )
-
-                # Reset form for next product
-                self.reset_form()
-
-            else:
-                error = result.get("error", "Unknown error")
-                self.log(f"Publish failed: {error}", "error")
-                QMessageBox.warning(self, "Publish Failed", f"Error: {error}")
-
-        except Exception as e:
-            self.log(f"Publish error: {e}", "error")
-            QMessageBox.critical(self, "Error", f"Failed to publish: {e}")
 
         self.status_label.setText("Ready")
 
@@ -1951,7 +1831,6 @@ class KollectItApp(QMainWindow):
         self.era_edit.clear()
         self.origin_edit.clear()
         self.price_spin.setValue(0)
-        self.original_price_spin.setValue(0)
         self.current_folder = None
         self.current_images = []
         self.uploaded_image_urls = []
@@ -1965,7 +1844,6 @@ class KollectItApp(QMainWindow):
         # Disable buttons
         self.optimize_btn.setEnabled(False)
         self.upload_btn.setEnabled(False)
-        self.publish_btn.setEnabled(False)
 
         self.progress_bar.setValue(0)
         self.log("Form reset - ready for next product", "info")
@@ -2148,7 +2026,7 @@ class KollectItApp(QMainWindow):
         QMessageBox.about(
             self, "About Kollect-It Product Manager",
             f"Kollect-It Product Manager v{VERSION}\n\n"
-            "Desktop application for processing and publishing "
+            "Desktop application for processing and optimizing "
             "antiques and collectibles listings.\n\n"
             "© 2025 Kollect-It"
         )
