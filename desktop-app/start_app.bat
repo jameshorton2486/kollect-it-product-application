@@ -7,6 +7,13 @@ echo    Kollect-It Product Automation System
 echo =============================================
 echo.
 
+REM Check for virtual environment in parent directory
+if exist "%~dp0..\.venv\Scripts\python.exe" (
+    echo Using virtual environment...
+    "%~dp0..\.venv\Scripts\python.exe" "%~dp0main.py"
+    exit /b
+)
+
 REM Check if Python is available
 python --version >nul 2>&1
 if errorlevel 1 (

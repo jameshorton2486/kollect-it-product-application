@@ -10,6 +10,13 @@ echo
 # Change to script directory
 cd "$(dirname "$0")"
 
+# Check for virtual environment in parent directory
+if [ -f "../.venv/bin/python" ]; then
+    echo "Using virtual environment..."
+    ../.venv/bin/python main.py
+    exit 0
+fi
+
 # Check if Python is available
 if ! command -v python3 &> /dev/null; then
     echo "ERROR: Python 3 is not installed"
