@@ -7,7 +7,7 @@ Use this checklist to get the project running quickly.
 - [ ] Python 3.9+ installed
 - [ ] Node.js/Next.js project for kollect-it.com
 - [ ] Google Drive access (or update paths in config)
-- [ ] API keys: Anthropic, ImageKit, SERVICE_API_KEY
+- [x] API keys: All configured in `.env` file
 
 ## Setup Steps
 
@@ -15,15 +15,13 @@ Use this checklist to get the project running quickly.
 ```bash
 cd desktop-app
 pip install -r requirements.txt
-pip install rembg  # Optional but recommended
+# rembg is already installed (v2.0.69)
 ```
 
-### 2. Create Configuration
-```bash
-cd desktop-app/config
-cp config.example.json config.json
-# Edit config.json with your API keys
-```
+### 2. Configuration
+✅ **Already configured!** API keys are in `.env` file.
+- Keys are automatically loaded from `desktop-app/.env`
+- No need to edit `config.json` - it uses `.env` values
 
 ### 3. Deploy API Endpoint
 - [ ] Copy `nextjs-api/route.ts` to your Next.js project:
@@ -68,12 +66,12 @@ curl -X GET https://kollect-it.com/api/admin/products/service-create \
 
 ## Configuration Checklist
 
-In `config.json`, verify:
-- [ ] `api.SERVICE_API_KEY` - matches server env var
-- [ ] `imagekit.public_key` - from ImageKit dashboard
-- [ ] `imagekit.private_key` - from ImageKit dashboard
-- [ ] `ai.api_key` - Anthropic API key
-- [ ] `paths.*` - all paths exist or will be created
+✅ **All API keys are configured in `.env` file:**
+- [x] `SERVICE_API_KEY` - Set in `.env`
+- [x] `IMAGEKIT_PUBLIC_KEY` - Set in `.env`
+- [x] `IMAGEKIT_PRIVATE_KEY` - Set in `.env`
+- [x] `ANTHROPIC_API_KEY` - Set in `.env`
+- [ ] `paths.*` - Verify folder paths in `config.json` match your system
 
 ## Troubleshooting
 

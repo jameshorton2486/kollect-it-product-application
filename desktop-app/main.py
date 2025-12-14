@@ -545,6 +545,7 @@ class DropZone(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.browse_btn = None  # Initialize attribute
+        self.browse_files_btn = None  # Initialize attribute for new button
         self.setAcceptDrops(True)
         self.setMinimumHeight(200)
         self.setup_ui()
@@ -583,7 +584,7 @@ class DropZone(QFrame):
         layout.addWidget(main_text)
         
         # Sub text
-        sub_text = QLabel("or click Browse to select a folder")
+        sub_text = QLabel("or click Browse to select folder/files")
         sub_text.setStyleSheet("""
             QLabel {
                 color: #b4b4b4;
@@ -593,11 +594,25 @@ class DropZone(QFrame):
         sub_text.setAlignment(Qt.AlignCenter)  # type: ignore
         layout.addWidget(sub_text)
         
-        # Browse button
+        # Browse buttons container
+        browse_layout = QHBoxLayout()
+        
+        # Browse folder button
         self.browse_btn = QPushButton("Browse Folder")
-        self.browse_btn.setMaximumWidth(200)
+        self.browse_btn.setMaximumWidth(150)
         self.browse_btn.clicked.connect(self.browse_folder)
-        layout.addWidget(self.browse_btn, alignment=Qt.AlignCenter)  # type: ignore
+        browse_layout.addWidget(self.browse_btn)
+        
+        # Browse files button
+        self.browse_files_btn = QPushButton("Browse Files")
+        self.browse_files_btn.setMaximumWidth(150)
+        self.browse_files_btn.clicked.connect(self.browse_files)
+        browse_layout.addWidget(self.browse_files_btn)
+        
+        # Add browse buttons layout to main layout
+        browse_container = QWidget()
+        browse_container.setLayout(browse_layout)
+        layout.addWidget(browse_container, alignment=Qt.AlignCenter)  # type: ignore
         
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -653,6 +668,38 @@ class DropZone(QFrame):
         )
         if folder:
             self.folder_dropped.emit(folder)
+    
+    def browse_files(self):
+        # Get default path from config, fallback to user's home directory
+        default_path = ""
+        if hasattr(self, 'config'):
+            default_path = self.config.get("paths", {}).get("default_browse", "")
+        if not default_path:
+            default_path = str(Path.home())
+        
+        # Define image file filters
+        file_filter = "Image Files (*.png *.jpg *.jpeg *.webp *.tiff *.bmp);;PNG Files (*.png);;JPEG Files (*.jpg *.jpeg);;WebP Files (*.webp);;All Files (*.*)"
+        
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Select Image Files",
+            default_path, file_filter
+        )
+        if files:
+            # Create a temporary folder structure for individual files
+            import tempfile
+            import shutil
+            
+            # Create a temporary directory to hold the selected files
+            temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
+            
+            # Copy selected files to temp directory
+            for file_path in files:
+                file_name = Path(file_path).name
+                temp_file_path = Path(temp_dir) / file_name
+                shutil.copy2(file_path, temp_file_path)
+            
+            # Emit the temporary folder as if it was dropped/selected
+            self.folder_dropped.emit(temp_dir)
 
 
 class ImageThumbnail(QLabel):

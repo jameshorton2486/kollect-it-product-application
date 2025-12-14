@@ -516,7 +516,7 @@ class AutomationWorker:
         try:
             api_status = self.publisher.check_service_status()
             status['api_online'] = api_status.get('success', False)
-        except:
+        except Exception:
             status['api_online'] = False
             
         return status
