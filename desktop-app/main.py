@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Kollect-It Product Manager
-Desktop application for processing, optimizing, and publishing antiques/collectibles listings.
+Desktop application for processing and optimizing antiques/collectibles listings.
 
 Features:
 - Drag-and-drop product folder processing
@@ -10,7 +10,6 @@ Features:
 - Built-in image cropping tool
 - AI background removal
 - ImageKit cloud upload
-- Direct website publishing via API
 - SKU generation per category
 """
 
@@ -56,11 +55,12 @@ from PyQt5.QtGui import (
 from modules.image_processor import ImageProcessor  # type: ignore
 from modules.imagekit_uploader import ImageKitUploader  # type: ignore
 from modules.sku_generator import SKUGenerator  # type: ignore
+from modules.sku_scanner import SKUScanner  # type: ignore
 from modules.ai_engine import AIEngine  # type: ignore
-from modules.product_publisher import ProductPublisher  # type: ignore
 from modules.background_remover import BackgroundRemover  # type: ignore
 from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
+from modules.output_generator import OutputGenerator  # type: ignore
 
 
 class DarkPalette:
@@ -849,6 +849,12 @@ class KollectItApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
+        
+        # Initialize SKU Scanner and Output Generator
+        products_root = self.config.get("paths", {}).get("products_root", r"G:\My Drive\Kollect-It\Products")
+        self.sku_scanner = SKUScanner(products_root, self.config.get("categories", {}))
+        self.output_generator = OutputGenerator(self.config)
+        self.last_valuation = None
         self.current_folder = None
         self.current_images = []
         self.uploaded_image_urls = []  # Store URLs after ImageKit upload
@@ -862,13 +868,12 @@ class KollectItApp(QMainWindow):
         self.remove_bg_btn = None
         self.optimize_btn = None
         self.upload_btn = None
-        self.publish_btn = None
+        self.export_btn = None
         self.title_edit = None
         self.sku_edit = None
         self.category_combo = None
         self.subcategory_combo = None
         self.price_spin = None
-        self.original_price_spin = None
         self.condition_combo = None
         self.era_edit = None
         self.origin_edit = None
@@ -880,8 +885,6 @@ class KollectItApp(QMainWindow):
         self.seo_keywords_edit = None
         self.bg_removal_check = None
         self.bg_strength_slider = None
-        self.auto_publish_check = None
-        self.use_production_check = None
         self.progress_bar = None
         self.status_label = None
         self.log_output = None
@@ -963,8 +966,7 @@ class KollectItApp(QMainWindow):
             QMessageBox.warning(
                 None, "Configuration Warning",
                 "SERVICE_API_KEY is not configured.\n\n"
-                "Add it to .env file or config.json.\n"
-                "Publishing to the website will not work until you add your API key."
+                "Add it to .env file or config.json if needed for future features."
             )
 
         return config
@@ -1114,17 +1116,10 @@ class KollectItApp(QMainWindow):
         price_layout = QHBoxLayout()
         self.price_spin = QDoubleSpinBox()
         self.price_spin.setRange(0, 999999.99)
-        self.price_spin.setPrefix("$ "),
+        self.price_spin.setPrefix("$ ")
         self.price_spin.setDecimals(2)
         price_layout.addWidget(self.price_spin)
-
-        self.original_price_spin = QDoubleSpinBox()
-        self.original_price_spin.setRange(0, 999999.99)
-        self.original_price_spin.setPrefix("$ ")
-        self.original_price_spin.setDecimals(2)
-        self.original_price_spin.setSpecialValueText("Optional")
-        price_layout.addWidget(self.original_price_spin)
-        form.addRow("Price:", price_layout)
+        form.addRow("Suggested Price:", price_layout)
 
         # Condition
         self.condition_combo = QComboBox()
@@ -1158,7 +1153,7 @@ class KollectItApp(QMainWindow):
         self.generate_desc_btn.clicked.connect(self.generate_description)
         ai_btn_layout.addWidget(self.generate_desc_btn)
 
-        self.generate_valuation_btn = QPushButton("💰 AI Valuation")
+        self.generate_valuation_btn = QPushButton("💰 Price Research")
         self.generate_valuation_btn.clicked.connect(self.generate_valuation)
         ai_btn_layout.addWidget(self.generate_valuation_btn)
         desc_layout.addLayout(ai_btn_layout)
@@ -1204,15 +1199,6 @@ class KollectItApp(QMainWindow):
         self.bg_strength_slider.setValue(80)
         settings_layout.addRow("BG Removal Strength:", self.bg_strength_slider)
 
-        self.auto_publish_check = QCheckBox("Auto-publish after processing")
-        settings_layout.addRow(self.auto_publish_check)
-
-        self.use_production_check = QCheckBox("Use Production API")
-        self.use_production_check.setChecked(
-            self.config.get("api", {}).get("use_production", True)
-        )
-        settings_layout.addRow(self.use_production_check)
-
         tabs.addTab(settings_tab, "⚙️ Settings")
 
         right_layout.addWidget(tabs)
@@ -1239,20 +1225,20 @@ class KollectItApp(QMainWindow):
         self.upload_btn.clicked.connect(self.upload_to_imagekit)
         actions_layout.addWidget(self.upload_btn)
 
-        self.publish_btn = QPushButton("🚀 Publish Product")
-        self.publish_btn.setEnabled(False)
-        self.publish_btn.clicked.connect(self.publish_product)
-        self.publish_btn.setStyleSheet(f"""
+        self.export_btn = QPushButton("📦 Export Package")
+        self.export_btn.setEnabled(False)
+        self.export_btn.clicked.connect(self.export_package)
+        self.export_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {DarkPalette.SUCCESS};
+                background-color: {DarkPalette.PRIMARY};
                 font-size: 15px;
                 padding: 14px 28px;
             }}
             QPushButton:hover {{
-                background-color: #38a169;
+                background-color: {DarkPalette.PRIMARY_DARK};
             }}
         """)
-        actions_layout.addWidget(self.publish_btn)
+        actions_layout.addWidget(self.export_btn)
 
         right_layout.addLayout(actions_layout)
 
@@ -1352,7 +1338,6 @@ class KollectItApp(QMainWindow):
         toolbar.addAction("📂 Open", self.open_folder)
         toolbar.addAction("⚡ Process", self.optimize_images)
         toolbar.addAction("☁️ Upload", self.upload_to_imagekit)
-        toolbar.addAction("🚀 Publish", self.publish_product)
 
     def setup_statusbar(self):
         """Set up the status bar."""
@@ -1498,10 +1483,8 @@ class KollectItApp(QMainWindow):
             return
 
         try:
-            state_file_path = Path(__file__).parent / "config" / "sku_state.json"
-            generator = SKUGenerator(str(state_file_path))
             prefix = self.config["categories"][cat_id]["prefix"]
-            sku = generator.generate(prefix)
+            sku = self.sku_scanner.get_next_sku(prefix)
             self.sku_edit.setText(sku)
             self.log(f"Generated SKU: {sku}", "info")
         except KeyError as e:
@@ -1746,17 +1729,34 @@ class KollectItApp(QMainWindow):
                 if result.get("suggested_title"):
                     self.title_edit.setText(result["suggested_title"])
 
-                # Handle valuation if present
+                # Handle valuation if present (from description generation)
                 valuation = result.get("valuation")
                 if valuation and isinstance(valuation, dict):
                     recommended = valuation.get("recommended", 0)
+                    low = valuation.get("low", 0)
+                    high = valuation.get("high", 0)
                     if recommended:
-                        self.price_spin.setValue(float(recommended))
-                        low = valuation.get("low", 0)
-                        high = valuation.get("high", 0)
-                        self.log(f"AI Valuation: ${low} - ${high} (Rec: ${recommended})", "info")
+                        # Display pricing research (don't auto-set price)
+                        self.log(
+                            f"💰 Price Research (from description): ${low:,.2f} - ${high:,.2f} (Rec: ${recommended:,.2f})",
+                            "info"
+                        )
+                        # Store for later use
+                        self.last_valuation = {
+                            "low": low,
+                            "high": high,
+                            "recommended": recommended,
+                            "confidence": valuation.get("confidence", "Medium"),
+                            "notes": valuation.get("notes", "")
+                        }
 
                 self.log("AI description generated", "success")
+                
+                # Enable export button if we have title, description, and images
+                if (self.title_edit.text() and 
+                    self.description_edit.toPlainText() and 
+                    self.uploaded_image_urls):
+                    self.export_btn.setEnabled(True)
             else:
                 self.log("AI generation returned no results", "warning")
 
@@ -1766,8 +1766,8 @@ class KollectItApp(QMainWindow):
         self.status_label.setText("Ready")
 
     def generate_valuation(self):
-        """Generate AI-powered valuation estimate."""
-        self.log("Generating AI valuation...", "info")
+        """Generate AI-powered price research and display guidance."""
+        self.log("Generating price research...", "info")
 
         try:
             engine = AIEngine(self.config)
@@ -1792,18 +1792,30 @@ class KollectItApp(QMainWindow):
                 low = valuation.get("low", 0)
                 high = valuation.get("high", 0)
                 recommended = valuation.get("recommended", 0)
+                confidence = valuation.get("confidence", "Medium")
+                notes = valuation.get("notes", "")
 
-                self.price_spin.setValue(recommended)
+                # Display pricing research in log (don't auto-set)
                 self.log(
-                    f"Valuation: ${low:,.2f} - ${high:,.2f} (Recommended: ${recommended:,.2f})",
-                    "success"
+                    f"💰 Price Research Results:\n"
+                    f"   Suggested Range: ${low:,.2f} - ${high:,.2f}\n"
+                    f"   Recommended: ${recommended:,.2f}\n"
+                    f"   Confidence: {confidence}\n"
+                    f"   Notes: {notes}",
+                    "info"
                 )
 
-                if valuation.get("notes"):
-                    self.log(f"Valuation notes: {valuation['notes']}", "info")
+                # Store for later export (but don't auto-fill the price field)
+                self.last_valuation = {
+                    "low": low,
+                    "high": high,
+                    "recommended": recommended,
+                    "confidence": confidence,
+                    "notes": notes
+                }
 
         except Exception as e:
-            self.log(f"Valuation error: {e}", "error")
+            self.log(f"Price research error: {e}", "error")
 
     def upload_to_imagekit(self):
         """Upload processed images to ImageKit."""
@@ -1851,18 +1863,21 @@ class KollectItApp(QMainWindow):
                 QApplication.processEvents()  # Keep UI responsive
 
             self.log(f"Uploaded {len(uploaded_urls)} images to ImageKit", "success")
-            self.publish_btn.setEnabled(True)
 
-            # Store URLs for publishing
+            # Store URLs
             self.uploaded_image_urls = uploaded_urls
+            
+            # Enable export button if we have required data
+            if uploaded_urls and self.title_edit.text() and self.description_edit.toPlainText():
+                self.export_btn.setEnabled(True)
 
         except Exception as e:
             self.log(f"Upload error: {e}", "error")
 
         self.status_label.setText("Ready")
 
-    def publish_product(self):
-        """Publish the product to the website."""
+    def export_package(self):
+        """Export product package to files."""
         # Validate required fields
         if not self.title_edit.text():
             QMessageBox.warning(self, "Missing Title", "Please enter a product title.")
@@ -1872,78 +1887,94 @@ class KollectItApp(QMainWindow):
             QMessageBox.warning(self, "Missing Description", "Please generate or enter a description.")
             return
 
-        if self.price_spin.value() <= 0:
-            QMessageBox.warning(self, "Missing Price", "Please set a price.")
+        if not self.uploaded_image_urls:
+            QMessageBox.warning(self, "No Images", "Please upload images to ImageKit first.")
             return
 
-        self.log("Publishing product...", "info")
-        self.status_label.setText("Publishing to website...")
+        category = self.category_combo.currentData()
+        if not category:
+            QMessageBox.warning(self, "No Category", "Please select a category first.")
+            return
+
+        sku = self.sku_edit.text()
+        if not sku:
+            QMessageBox.warning(self, "No SKU", "Please generate a SKU first.")
+            return
+
+        self.log("Exporting product package...", "info")
+        self.status_label.setText("Exporting package...")
 
         try:
-            publisher = ProductPublisher(self.config)
-
-            # Validate required fields
-            category = self.category_combo.currentData()
-            if not category:
-                QMessageBox.warning(self, "Missing Category", "Please select a category.")
-                return
-
-            sku = self.sku_edit.text()
-            if not sku:
-                QMessageBox.warning(self, "Missing SKU", "Please generate a SKU.")
-                return
-
-            # Build product payload
+            # Build product data dictionary
             product_data = {
                 "title": self.title_edit.text(),
                 "sku": sku,
                 "category": category,
-                "subcategory": self.subcategory_combo.currentText(),
+                "subcategory": self.subcategory_combo.currentText() or None,
                 "description": self.description_edit.toPlainText(),
                 "descriptionHtml": f"<p>{self.description_edit.toPlainText()}</p>",
                 "price": self.price_spin.value(),
-                "originalPrice": self.original_price_spin.value() or None,
                 "condition": self.condition_combo.currentText(),
                 "era": self.era_edit.text() or None,
                 "origin": self.origin_edit.text() or None,
                 "images": [
                     {"url": url, "alt": f"{self.title_edit.text()} - Image {i+1}", "order": i}
-                    for i, url in enumerate(getattr(self, 'uploaded_image_urls', []))
+                    for i, url in enumerate(self.uploaded_image_urls)
                 ],
                 "seoTitle": self.seo_title_edit.text() or self.title_edit.text(),
                 "seoDescription": self.seo_desc_edit.toPlainText() or self.description_edit.toPlainText()[:160],
                 "seoKeywords": [k.strip() for k in self.seo_keywords_edit.text().split(",") if k.strip()],
-                "status": "draft"
+                "last_valuation": self.last_valuation
             }
 
-            result = publisher.publish(product_data)
+            # Export the package
+            result = self.output_generator.export_package(product_data)
 
             if result.get("success"):
-                product_url = result.get("product", {}).get("url", "")
-                self.log(f"✅ Product published! URL: {product_url}", "success")
+                output_path = result.get("output_path")
+                self.log(f"✅ Package exported to: {output_path}", "success")
 
-                QMessageBox.information(
-                    self, "Success!",
-                    f"Product published successfully!\n\nSKU: {self.sku_edit.text()}\nURL: {product_url}"
-                )
-
-                # Reset form for next product
-                self.reset_form()
-
+                # Show success dialog with options
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Export Successful")
+                msg.setText(f"Product package exported successfully!\n\nSKU: {sku}\nLocation: {output_path}")
+                
+                open_folder_btn = msg.addButton("Open Folder", QMessageBox.ActionRole)
+                new_product_btn = msg.addButton("New Product", QMessageBox.ActionRole)
+                msg.addButton("OK", QMessageBox.AcceptRole)
+                
+                msg.exec_()
+                
+                if msg.clickedButton() == open_folder_btn:
+                    # Open folder in file explorer
+                    import subprocess
+                    import platform
+                    if platform.system() == "Windows":
+                        subprocess.Popen(f'explorer "{output_path}"')
+                    elif platform.system() == "Darwin":  # macOS
+                        subprocess.Popen(["open", str(output_path)])
+                    else:  # Linux
+                        subprocess.Popen(["xdg-open", str(output_path)])
+                
+                elif msg.clickedButton() == new_product_btn:
+                    # Reset form for new product
+                    self.reset_form()
             else:
                 error = result.get("error", "Unknown error")
-                self.log(f"Publish failed: {error}", "error")
-                QMessageBox.warning(self, "Publish Failed", f"Error: {error}")
+                self.log(f"Export failed: {error}", "error")
+                QMessageBox.warning(self, "Export Failed", f"Error: {error}")
 
         except Exception as e:
-            self.log(f"Publish error: {e}", "error")
-            QMessageBox.critical(self, "Error", f"Failed to publish: {e}")
+            self.log(f"Export error: {e}", "error")
+            QMessageBox.critical(self, "Error", f"Failed to export: {e}")
 
         self.status_label.setText("Ready")
 
     def reset_form(self):
         """Reset the form for a new product."""
         self.title_edit.clear()
+        self.sku_edit.clear()
         self.description_edit.clear()
         self.seo_title_edit.clear()
         self.seo_desc_edit.clear()
@@ -1951,10 +1982,10 @@ class KollectItApp(QMainWindow):
         self.era_edit.clear()
         self.origin_edit.clear()
         self.price_spin.setValue(0)
-        self.original_price_spin.setValue(0)
         self.current_folder = None
         self.current_images = []
         self.uploaded_image_urls = []
+        self.last_valuation = None
 
         # Clear image grid
         while self.image_grid_layout.count():
@@ -1965,7 +1996,7 @@ class KollectItApp(QMainWindow):
         # Disable buttons
         self.optimize_btn.setEnabled(False)
         self.upload_btn.setEnabled(False)
-        self.publish_btn.setEnabled(False)
+        self.export_btn.setEnabled(False)
 
         self.progress_bar.setValue(0)
         self.log("Form reset - ready for next product", "info")
@@ -2148,7 +2179,7 @@ class KollectItApp(QMainWindow):
         QMessageBox.about(
             self, "About Kollect-It Product Manager",
             f"Kollect-It Product Manager v{VERSION}\n\n"
-            "Desktop application for processing and publishing "
+            "Desktop application for processing and optimizing "
             "antiques and collectibles listings.\n\n"
             "© 2025 Kollect-It"
         )

@@ -132,28 +132,6 @@ python main.py
 7. **Click "Upload to ImageKit"** to upload images
 8. **Click "Publish Product"** to create listing
 
-### Running the Automation Worker
-
-**Single run (process all pending folders):**
-```bash
-python automation_worker.py
-```
-
-**Daemon mode (continuous monitoring):**
-```bash
-python automation_worker.py --daemon
-```
-
-**Test mode (process without publishing):**
-```bash
-python automation_worker.py --test
-```
-
-**Check system status:**
-```bash
-python automation_worker.py --status
-```
-
 ### Batch Background Removal (Standalone Script)
 
 Process all images in a folder to remove backgrounds:
@@ -288,7 +266,6 @@ SKU counters are stored in `config/sku_state.json` and persist across sessions.
 kollect-it-automation/
 ├── desktop-app/
 │   ├── main.py                 # PyQt5 desktop application
-│   ├── automation_worker.py    # Background processing daemon
 │   ├── requirements.txt        # Python dependencies
 │   ├── config/
 │   │   ├── config.json         # Main configuration

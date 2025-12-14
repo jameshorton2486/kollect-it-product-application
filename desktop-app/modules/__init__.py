@@ -9,7 +9,6 @@ Modules:
     - imagekit_uploader: ImageKit CDN integration
     - sku_generator: SKU generation and management
     - ai_engine: AI-powered description and valuation
-    - product_publisher: Website API integration
     - background_remover: AI background removal
     - crop_tool: Interactive image cropping
     - config_validator: Configuration validation and error checking
@@ -18,21 +17,23 @@ Modules:
 from .image_processor import ImageProcessor
 from .imagekit_uploader import ImageKitUploader
 from .sku_generator import SKUGenerator
+from .sku_scanner import SKUScanner
 from .ai_engine import AIEngine
-from .product_publisher import ProductPublisher
 from .background_remover import BackgroundRemover
 from .crop_tool import CropDialog
 from .config_validator import ConfigValidator
+from .output_generator import OutputGenerator
 
 __all__ = [
     'ImageProcessor',
     'ImageKitUploader', 
     'SKUGenerator',
+    'SKUScanner',
     'AIEngine',
-    'ProductPublisher',
     'BackgroundRemover',
     'CropDialog',
-    'ConfigValidator'
+    'ConfigValidator',
+    'OutputGenerator'
 ]
 
 __version__ = '1.0.0'
