@@ -47,7 +47,7 @@ class AIEngine:
         ai_config = config.get("ai", {})
 
         self.provider = ai_config.get("provider", "anthropic")
-        self.model = ai_config.get("model", "claude-3-5-sonnet-20240620")
+        self.model = ai_config.get("model", "claude-sonnet-4-20250514")
         # Check .env first, fallback to config.json
         self.api_key = os.getenv("ANTHROPIC_API_KEY") or ai_config.get("api_key", "")
         self.max_tokens = ai_config.get("max_tokens", 4000)

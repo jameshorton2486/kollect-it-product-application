@@ -685,12 +685,15 @@ class DropZone(QFrame):
         # Get default path from config, fallback to user's home directory
         default_path = ""
 
-        # Check for specific requested path first
-        requested_path = Path(r"E:\DCIM\100CANON\New folder")
-        if requested_path.exists():
-            default_path = str(requested_path)
-        elif hasattr(self, 'config'):
-            default_path = self.config.get("paths", {}).get("default_browse", "")
+        # Get path from config
+        if hasattr(self, 'config'):
+            default_path = self.config.get("paths", {}).get("camera_import", "")
+            if default_path:
+                requested_path = Path(default_path)
+                if requested_path.exists():
+                    default_path = str(requested_path)
+                else:
+                    default_path = ""
 
         if not default_path:
             default_path = str(Path.home())
@@ -709,6 +712,7 @@ class DropZone(QFrame):
 
             # Create a temporary directory to hold the selected files
             temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
+            self._temp_dirs.append(temp_dir)
 
             # Copy selected files to temp directory
             for file_path in files:
@@ -856,6 +860,7 @@ class KollectItApp(QMainWindow):
         self.output_generator = OutputGenerator(self.config)
         self.last_valuation = None
         self.current_folder = None
+        self._temp_dirs = []  # Track temporary directories for cleanup
         self.current_images = []
         self.uploaded_image_urls = []  # Store URLs after ImageKit upload
         self.processing_thread = None
@@ -1074,6 +1079,7 @@ class KollectItApp(QMainWindow):
         # Title
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("Enter product title...")
+        self.title_edit.textChanged.connect(self.update_export_button_state)
         form.addRow("Title:", self.title_edit)
 
         # SKU (auto-generated)
@@ -1486,6 +1492,7 @@ class KollectItApp(QMainWindow):
             prefix = self.config["categories"][cat_id]["prefix"]
             sku = self.sku_scanner.get_next_sku(prefix)
             self.sku_edit.setText(sku)
+            self.update_export_button_state()
             self.log(f"Generated SKU: {sku}", "info")
         except KeyError as e:
             self.log(f"Category '{cat_id}' not found in config: {e}", "error")
@@ -1732,9 +1739,9 @@ class KollectItApp(QMainWindow):
                 # Handle valuation if present (from description generation)
                 valuation = result.get("valuation")
                 if valuation and isinstance(valuation, dict):
-                    recommended = valuation.get("recommended", 0)
-                    low = valuation.get("low", 0)
-                    high = valuation.get("high", 0)
+                    recommended = valuation.get("recommended") or 0
+                    low = valuation.get("low") or 0
+                    high = valuation.get("high") or 0
                     if recommended:
                         # Display pricing research (don't auto-set price)
                         self.log(
@@ -1752,11 +1759,8 @@ class KollectItApp(QMainWindow):
 
                 self.log("AI description generated", "success")
                 
-                # Enable export button if we have title, description, and images
-                if (self.title_edit.text() and 
-                    self.description_edit.toPlainText() and 
-                    self.uploaded_image_urls):
-                    self.export_btn.setEnabled(True)
+                # Update export button state
+                self.update_export_button_state()
             else:
                 self.log("AI generation returned no results", "warning")
 
@@ -1876,6 +1880,16 @@ class KollectItApp(QMainWindow):
 
         self.status_label.setText("Ready")
 
+    def update_export_button_state(self):
+        """Update export button enabled state based on required fields."""
+        if hasattr(self, 'export_btn'):
+            can_export = (
+                bool(self.sku_edit.text().strip()) and
+                bool(self.title_edit.text().strip()) and
+                len(self.uploaded_image_urls) > 0
+            )
+            self.export_btn.setEnabled(can_export)
+
     def export_package(self):
         """Export product package to files."""
         # Validate required fields
@@ -1905,6 +1919,11 @@ class KollectItApp(QMainWindow):
         self.status_label.setText("Exporting package...")
 
         try:
+            # Ensure category folder exists
+            category_prefix = self.config["categories"][category]["prefix"]
+            self.sku_scanner.ensure_category_folder(category_prefix)
+            self.log(f"Verified category folder: {category_prefix}", "info")
+            
             # Build product data dictionary
             product_data = {
                 "title": self.title_edit.text(),
@@ -1921,6 +1940,8 @@ class KollectItApp(QMainWindow):
                     {"url": url, "alt": f"{self.title_edit.text()} - Image {i+1}", "order": i}
                     for i, url in enumerate(self.uploaded_image_urls)
                 ],
+                # Canonical ImageKit folder path (used by website ingestion)
+                "imagekit_folder": f"products/{category_prefix}/{sku}",
                 "seoTitle": self.seo_title_edit.text() or self.title_edit.text(),
                 "seoDescription": self.seo_desc_edit.toPlainText() or self.description_edit.toPlainText()[:160],
                 "seoKeywords": [k.strip() for k in self.seo_keywords_edit.text().split(",") if k.strip()],
@@ -1982,6 +2003,7 @@ class KollectItApp(QMainWindow):
         self.era_edit.clear()
         self.origin_edit.clear()
         self.price_spin.setValue(0)
+        self.subcategory_combo.setCurrentIndex(0)
         self.current_folder = None
         self.current_images = []
         self.uploaded_image_urls = []
@@ -2223,6 +2245,18 @@ class KollectItApp(QMainWindow):
             self.on_folder_dropped(folder_path)
 
             self.log("Product loaded - ready for processing", "info")
+
+    def closeEvent(self, event):
+        """Handle application close event - cleanup temporary directories."""
+        # Clean up temporary directories
+        import shutil
+        for temp_dir in getattr(self, '_temp_dirs', []):
+            try:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+            except Exception:
+                pass
+        super().closeEvent(event)
 
 
 def main():
