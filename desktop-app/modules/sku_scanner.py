@@ -119,3 +119,17 @@ class SKUScanner:
                 results[prefix] = max_num
         
         return results
+    
+    def ensure_category_folder(self, prefix: str) -> Path:
+        """
+        Ensure the category folder exists, creating it if necessary.
+        
+        Args:
+            prefix: Category prefix (e.g., "MILI", "COLL")
+            
+        Returns:
+            Path to the category folder
+        """
+        category_folder = self.products_root / prefix.upper()
+        category_folder.mkdir(parents=True, exist_ok=True)
+        return category_folder
