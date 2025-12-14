@@ -1107,10 +1107,10 @@ class KollectItApp(QMainWindow):
         price_layout = QHBoxLayout()
         self.price_spin = QDoubleSpinBox()
         self.price_spin.setRange(0, 999999.99)
-        self.price_spin.setPrefix("$ "),
+        self.price_spin.setPrefix("$ ")
         self.price_spin.setDecimals(2)
         price_layout.addWidget(self.price_spin)
-        form.addRow("Price:", price_layout)
+        form.addRow("Suggested Price:", price_layout)
 
         # Condition
         self.condition_combo = QComboBox()
@@ -1144,7 +1144,7 @@ class KollectItApp(QMainWindow):
         self.generate_desc_btn.clicked.connect(self.generate_description)
         ai_btn_layout.addWidget(self.generate_desc_btn)
 
-        self.generate_valuation_btn = QPushButton("💰 AI Valuation")
+        self.generate_valuation_btn = QPushButton("💰 Price Research")
         self.generate_valuation_btn.clicked.connect(self.generate_valuation)
         ai_btn_layout.addWidget(self.generate_valuation_btn)
         desc_layout.addLayout(ai_btn_layout)
@@ -1707,15 +1707,26 @@ class KollectItApp(QMainWindow):
                 if result.get("suggested_title"):
                     self.title_edit.setText(result["suggested_title"])
 
-                # Handle valuation if present
+                # Handle valuation if present (from description generation)
                 valuation = result.get("valuation")
                 if valuation and isinstance(valuation, dict):
                     recommended = valuation.get("recommended", 0)
+                    low = valuation.get("low", 0)
+                    high = valuation.get("high", 0)
                     if recommended:
-                        self.price_spin.setValue(float(recommended))
-                        low = valuation.get("low", 0)
-                        high = valuation.get("high", 0)
-                        self.log(f"AI Valuation: ${low} - ${high} (Rec: ${recommended})", "info")
+                        # Display pricing research (don't auto-set price)
+                        self.log(
+                            f"💰 Price Research (from description): ${low:,.2f} - ${high:,.2f} (Rec: ${recommended:,.2f})",
+                            "info"
+                        )
+                        # Store for later use
+                        self.last_valuation = {
+                            "low": low,
+                            "high": high,
+                            "recommended": recommended,
+                            "confidence": valuation.get("confidence", "Medium"),
+                            "notes": valuation.get("notes", "")
+                        }
 
                 self.log("AI description generated", "success")
             else:
@@ -1727,8 +1738,8 @@ class KollectItApp(QMainWindow):
         self.status_label.setText("Ready")
 
     def generate_valuation(self):
-        """Generate AI-powered valuation estimate."""
-        self.log("Generating AI valuation...", "info")
+        """Generate AI-powered price research and display guidance."""
+        self.log("Generating price research...", "info")
 
         try:
             engine = AIEngine(self.config)
@@ -1753,18 +1764,30 @@ class KollectItApp(QMainWindow):
                 low = valuation.get("low", 0)
                 high = valuation.get("high", 0)
                 recommended = valuation.get("recommended", 0)
+                confidence = valuation.get("confidence", "Medium")
+                notes = valuation.get("notes", "")
 
-                self.price_spin.setValue(recommended)
+                # Display pricing research in log (don't auto-set)
                 self.log(
-                    f"Valuation: ${low:,.2f} - ${high:,.2f} (Recommended: ${recommended:,.2f})",
-                    "success"
+                    f"💰 Price Research Results:\n"
+                    f"   Suggested Range: ${low:,.2f} - ${high:,.2f}\n"
+                    f"   Recommended: ${recommended:,.2f}\n"
+                    f"   Confidence: {confidence}\n"
+                    f"   Notes: {notes}",
+                    "info"
                 )
 
-                if valuation.get("notes"):
-                    self.log(f"Valuation notes: {valuation['notes']}", "info")
+                # Store for later export (but don't auto-fill the price field)
+                self.last_valuation = {
+                    "low": low,
+                    "high": high,
+                    "recommended": recommended,
+                    "confidence": confidence,
+                    "notes": notes
+                }
 
         except Exception as e:
-            self.log(f"Valuation error: {e}", "error")
+            self.log(f"Price research error: {e}", "error")
 
     def upload_to_imagekit(self):
         """Upload processed images to ImageKit."""
