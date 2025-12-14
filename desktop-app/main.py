@@ -55,10 +55,12 @@ from PyQt5.QtGui import (
 from modules.image_processor import ImageProcessor  # type: ignore
 from modules.imagekit_uploader import ImageKitUploader  # type: ignore
 from modules.sku_generator import SKUGenerator  # type: ignore
+from modules.sku_scanner import SKUScanner  # type: ignore
 from modules.ai_engine import AIEngine  # type: ignore
 from modules.background_remover import BackgroundRemover  # type: ignore
 from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
+from modules.output_generator import OutputGenerator  # type: ignore
 
 
 class DarkPalette:
@@ -847,6 +849,12 @@ class KollectItApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
+        
+        # Initialize SKU Scanner and Output Generator
+        products_root = self.config.get("paths", {}).get("products_root", r"G:\My Drive\Kollect-It\Products")
+        self.sku_scanner = SKUScanner(products_root, self.config.get("categories", {}))
+        self.output_generator = OutputGenerator(self.config)
+        self.last_valuation = None
         self.current_folder = None
         self.current_images = []
         self.uploaded_image_urls = []  # Store URLs after ImageKit upload
@@ -860,6 +868,7 @@ class KollectItApp(QMainWindow):
         self.remove_bg_btn = None
         self.optimize_btn = None
         self.upload_btn = None
+        self.export_btn = None
         self.title_edit = None
         self.sku_edit = None
         self.category_combo = None
@@ -1216,6 +1225,21 @@ class KollectItApp(QMainWindow):
         self.upload_btn.clicked.connect(self.upload_to_imagekit)
         actions_layout.addWidget(self.upload_btn)
 
+        self.export_btn = QPushButton("📦 Export Package")
+        self.export_btn.setEnabled(False)
+        self.export_btn.clicked.connect(self.export_package)
+        self.export_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DarkPalette.PRIMARY};
+                font-size: 15px;
+                padding: 14px 28px;
+            }}
+            QPushButton:hover {{
+                background-color: {DarkPalette.PRIMARY_DARK};
+            }}
+        """)
+        actions_layout.addWidget(self.export_btn)
+
         right_layout.addLayout(actions_layout)
 
         # Log output
@@ -1459,10 +1483,8 @@ class KollectItApp(QMainWindow):
             return
 
         try:
-            state_file_path = Path(__file__).parent / "config" / "sku_state.json"
-            generator = SKUGenerator(str(state_file_path))
             prefix = self.config["categories"][cat_id]["prefix"]
-            sku = generator.generate(prefix)
+            sku = self.sku_scanner.get_next_sku(prefix)
             self.sku_edit.setText(sku)
             self.log(f"Generated SKU: {sku}", "info")
         except KeyError as e:
@@ -1729,6 +1751,12 @@ class KollectItApp(QMainWindow):
                         }
 
                 self.log("AI description generated", "success")
+                
+                # Enable export button if we have title, description, and images
+                if (self.title_edit.text() and 
+                    self.description_edit.toPlainText() and 
+                    self.uploaded_image_urls):
+                    self.export_btn.setEnabled(True)
             else:
                 self.log("AI generation returned no results", "warning")
 
@@ -1838,15 +1866,115 @@ class KollectItApp(QMainWindow):
 
             # Store URLs
             self.uploaded_image_urls = uploaded_urls
+            
+            # Enable export button if we have required data
+            if uploaded_urls and self.title_edit.text() and self.description_edit.toPlainText():
+                self.export_btn.setEnabled(True)
 
         except Exception as e:
             self.log(f"Upload error: {e}", "error")
 
         self.status_label.setText("Ready")
 
+    def export_package(self):
+        """Export product package to files."""
+        # Validate required fields
+        if not self.title_edit.text():
+            QMessageBox.warning(self, "Missing Title", "Please enter a product title.")
+            return
+
+        if not self.description_edit.toPlainText():
+            QMessageBox.warning(self, "Missing Description", "Please generate or enter a description.")
+            return
+
+        if not self.uploaded_image_urls:
+            QMessageBox.warning(self, "No Images", "Please upload images to ImageKit first.")
+            return
+
+        category = self.category_combo.currentData()
+        if not category:
+            QMessageBox.warning(self, "No Category", "Please select a category first.")
+            return
+
+        sku = self.sku_edit.text()
+        if not sku:
+            QMessageBox.warning(self, "No SKU", "Please generate a SKU first.")
+            return
+
+        self.log("Exporting product package...", "info")
+        self.status_label.setText("Exporting package...")
+
+        try:
+            # Build product data dictionary
+            product_data = {
+                "title": self.title_edit.text(),
+                "sku": sku,
+                "category": category,
+                "subcategory": self.subcategory_combo.currentText() or None,
+                "description": self.description_edit.toPlainText(),
+                "descriptionHtml": f"<p>{self.description_edit.toPlainText()}</p>",
+                "price": self.price_spin.value(),
+                "condition": self.condition_combo.currentText(),
+                "era": self.era_edit.text() or None,
+                "origin": self.origin_edit.text() or None,
+                "images": [
+                    {"url": url, "alt": f"{self.title_edit.text()} - Image {i+1}", "order": i}
+                    for i, url in enumerate(self.uploaded_image_urls)
+                ],
+                "seoTitle": self.seo_title_edit.text() or self.title_edit.text(),
+                "seoDescription": self.seo_desc_edit.toPlainText() or self.description_edit.toPlainText()[:160],
+                "seoKeywords": [k.strip() for k in self.seo_keywords_edit.text().split(",") if k.strip()],
+                "last_valuation": self.last_valuation
+            }
+
+            # Export the package
+            result = self.output_generator.export_package(product_data)
+
+            if result.get("success"):
+                output_path = result.get("output_path")
+                self.log(f"✅ Package exported to: {output_path}", "success")
+
+                # Show success dialog with options
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Export Successful")
+                msg.setText(f"Product package exported successfully!\n\nSKU: {sku}\nLocation: {output_path}")
+                
+                open_folder_btn = msg.addButton("Open Folder", QMessageBox.ActionRole)
+                new_product_btn = msg.addButton("New Product", QMessageBox.ActionRole)
+                msg.addButton("OK", QMessageBox.AcceptRole)
+                
+                msg.exec_()
+                
+                if msg.clickedButton() == open_folder_btn:
+                    # Open folder in file explorer
+                    import subprocess
+                    import platform
+                    if platform.system() == "Windows":
+                        subprocess.Popen(f'explorer "{output_path}"')
+                    elif platform.system() == "Darwin":  # macOS
+                        subprocess.Popen(["open", str(output_path)])
+                    else:  # Linux
+                        subprocess.Popen(["xdg-open", str(output_path)])
+                
+                elif msg.clickedButton() == new_product_btn:
+                    # Reset form for new product
+                    self.reset_form()
+            else:
+                error = result.get("error", "Unknown error")
+                self.log(f"Export failed: {error}", "error")
+                QMessageBox.warning(self, "Export Failed", f"Error: {error}")
+
+        except Exception as e:
+            self.log(f"Export error: {e}", "error")
+            QMessageBox.critical(self, "Error", f"Failed to export: {e}")
+
+        self.status_label.setText("Ready")
+
     def reset_form(self):
         """Reset the form for a new product."""
         self.title_edit.clear()
+        self.sku_edit.clear()
         self.description_edit.clear()
         self.seo_title_edit.clear()
         self.seo_desc_edit.clear()
@@ -1857,6 +1985,7 @@ class KollectItApp(QMainWindow):
         self.current_folder = None
         self.current_images = []
         self.uploaded_image_urls = []
+        self.last_valuation = None
 
         # Clear image grid
         while self.image_grid_layout.count():
@@ -1867,6 +1996,7 @@ class KollectItApp(QMainWindow):
         # Disable buttons
         self.optimize_btn.setEnabled(False)
         self.upload_btn.setEnabled(False)
+        self.export_btn.setEnabled(False)
 
         self.progress_bar.setValue(0)
         self.log("Form reset - ready for next product", "info")
