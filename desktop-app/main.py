@@ -1793,9 +1793,9 @@ class KollectItApp(QMainWindow):
             valuation = engine.generate_valuation(product_data)
 
             if valuation:
-                low = valuation.get("low", 0)
-                high = valuation.get("high", 0)
-                recommended = valuation.get("recommended", 0)
+                low = valuation.get("low") or 0
+                high = valuation.get("high") or 0
+                recommended = valuation.get("recommended") or 0
                 confidence = valuation.get("confidence", "Medium")
                 notes = valuation.get("notes", "")
 
