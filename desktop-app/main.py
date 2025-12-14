@@ -659,23 +659,39 @@ class DropZone(QFrame):
     def browse_folder(self):
         # Get default path from config, fallback to user's home directory
         default_path = ""
-        if hasattr(self, 'config'):
+
+        # Check for specific requested path first
+        requested_path = Path(r"E:\DCIM\100CANON\New folder")
+        if requested_path.exists():
+            default_path = str(requested_path)
+        elif hasattr(self, 'config'):
             default_path = self.config.get("paths", {}).get("default_browse", "")
+
         if not default_path:
             default_path = str(Path.home())
 
-        folder = QFileDialog.getExistingDirectory(
-            self, "Select Product Folder",
-            default_path, QFileDialog.ShowDirsOnly
-        )
-        if folder:
-            self.folder_dropped.emit(folder)
+        # Use a custom file dialog to allow seeing files while selecting a folder
+        dialog = QFileDialog(self, "Select Product Folder", default_path)
+        dialog.setFileMode(QFileDialog.Directory)
+        dialog.setOption(QFileDialog.ShowDirsOnly, False)  # Allow seeing files
+        dialog.setViewMode(QFileDialog.Detail)  # Try to show details/icons
+
+        if dialog.exec_() == QFileDialog.Accepted:
+            folder = dialog.selectedFiles()[0]
+            if folder:
+                self.folder_dropped.emit(folder)
 
     def browse_files(self):
         # Get default path from config, fallback to user's home directory
         default_path = ""
-        if hasattr(self, 'config'):
+
+        # Check for specific requested path first
+        requested_path = Path(r"E:\DCIM\100CANON\New folder")
+        if requested_path.exists():
+            default_path = str(requested_path)
+        elif hasattr(self, 'config'):
             default_path = self.config.get("paths", {}).get("default_browse", "")
+
         if not default_path:
             default_path = str(Path.home())
 
@@ -714,9 +730,33 @@ class ImageThumbnail(QLabel):
     def __init__(self, image_path: str, parent=None):
         super().__init__(parent)
         self.image_path = image_path
-        self.setFixedSize(120, 120)
+        self.is_selected = False  # Track selection state
+        # Increased size for "large format" display
+        self.setFixedSize(250, 250)
         self.setCursor(Qt.PointingHandCursor)  # type: ignore
         self.load_image()
+
+    def set_selected(self, selected: bool):
+        """Set the selected state and update style."""
+        self.is_selected = selected
+        self.update_style()
+
+    def update_style(self):
+        """Update the stylesheet based on state."""
+        border_color = DarkPalette.PRIMARY if self.is_selected else DarkPalette.BORDER
+        border_width = "4px" if self.is_selected else "2px"
+
+        self.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DarkPalette.SURFACE};
+                border: {border_width} solid {border_color};
+                border-radius: 8px;
+                padding: 4px;
+            }}
+            QLabel:hover {{
+                border-color: {DarkPalette.PRIMARY};
+            }}
+        """)
 
     def load_image(self):
         pixmap = QPixmap(self.image_path)
@@ -727,17 +767,7 @@ class ImageThumbnail(QLabel):
                 Qt.SmoothTransformation  # type: ignore
             )
             self.setPixmap(scaled)
-        self.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DarkPalette.SURFACE};
-                border: 2px solid {DarkPalette.BORDER};
-                border-radius: 8px;
-                padding: 4px;
-            }}
-            QLabel:hover {{
-                border-color: {DarkPalette.PRIMARY};
-            }}
-        """)
+        self.update_style()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:  # type: ignore
@@ -1393,7 +1423,7 @@ class KollectItApp(QMainWindow):
             self.current_images.append(str(img_path))
 
             thumb = ImageThumbnail(str(img_path))
-            thumb.clicked.connect(self.preview_image)
+            thumb.clicked.connect(self.on_thumbnail_clicked)
             thumb.crop_requested.connect(self.crop_image)
             thumb.remove_bg_requested.connect(self.remove_image_background)
 
@@ -1405,6 +1435,20 @@ class KollectItApp(QMainWindow):
                 row += 1
 
         self.log(f"Found {len(images)} images", "info")
+
+    def on_thumbnail_clicked(self, image_path: str):
+        """Handle thumbnail click to update selection state."""
+        # Update selection state for all thumbnails
+        for i in range(self.image_grid_layout.count()):
+            item = self.image_grid_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, ImageThumbnail):
+                    is_selected = (widget.image_path == image_path)
+                    widget.set_selected(is_selected)
+
+        # Call original preview method
+        self.preview_image(image_path)
 
     def detect_category(self, folder_path: str):
         """Auto-detect category from folder name or contents."""
@@ -1701,6 +1745,16 @@ class KollectItApp(QMainWindow):
 
                 if result.get("suggested_title"):
                     self.title_edit.setText(result["suggested_title"])
+
+                # Handle valuation if present
+                valuation = result.get("valuation")
+                if valuation and isinstance(valuation, dict):
+                    recommended = valuation.get("recommended", 0)
+                    if recommended:
+                        self.price_spin.setValue(float(recommended))
+                        low = valuation.get("low", 0)
+                        high = valuation.get("high", 0)
+                        self.log(f"AI Valuation: ${low} - ${high} (Rec: ${recommended})", "info")
 
                 self.log("AI description generated", "success")
             else:
@@ -2144,6 +2198,11 @@ def main():
     """Application entry point."""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    # Increase global font size by 2 points
+    font = app.font()
+    font.setPointSize(font.pointSize() + 2)
+    app.setFont(font)
 
     # Set application info
     app.setApplicationName("Kollect-It Product Manager")
