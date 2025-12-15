@@ -114,16 +114,18 @@ class ConfigValidator:
             self.errors.append("Categories: No categories defined")
             return
         
-        required_cat_fields = ["prefix", "name"]
-        
         for cat_id, cat_data in categories.items():
             if not isinstance(cat_data, dict):
                 self.errors.append(f"Categories: '{cat_id}' must be an object")
                 continue
             
-            for field in required_cat_fields:
-                if field not in cat_data:
-                    self.errors.append(f"Categories: '{cat_id}' missing required field '{field}'")
+            # prefix is required
+            if "prefix" not in cat_data:
+                self.errors.append(f"Categories: '{cat_id}' missing required field 'prefix'")
+            
+            # Either 'name' or 'display_name' must be present
+            if "name" not in cat_data and "display_name" not in cat_data:
+                self.errors.append(f"Categories: '{cat_id}' missing required field 'name' or 'display_name'")
             
             # Validate prefix format
             prefix = cat_data.get("prefix", "")

@@ -155,3 +155,57 @@ def load_config_with_env(config_path: Path) -> Dict[str, Any]:
         config = merge_env_into_config(config, env_vars)
 
     return config
+
+
+def update_env_key(key: str, value: str, env_path: Path = None) -> bool:
+    """
+    Update or add a key in the .env file.
+    Preserves comments and structure.
+
+    Args:
+        key: The environment variable key
+        value: The new value
+        env_path: Path to .env file (optional)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if env_path is None:
+        env_path = Path(__file__).parent.parent / ".env"
+
+    try:
+        if not env_path.exists():
+            # Create new file
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write(f"{key}={value}\n")
+            return True
+
+        # Read existing lines
+        with open(env_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        key_found = False
+        new_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            # Check for key at start of line, ignoring comments
+            if not stripped.startswith('#') and (stripped.startswith(f"{key}=") or stripped.startswith(f"{key} =")):
+                new_lines.append(f"{key}={value}\n")
+                key_found = True
+            else:
+                new_lines.append(line)
+
+        if not key_found:
+            # Append to end
+            if new_lines and not new_lines[-1].endswith('\n'):
+                new_lines[-1] += '\n'
+            new_lines.append(f"{key}={value}\n")
+
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.writelines(new_lines)
+
+        return True
+    except Exception as e:
+        print(f"Error updating .env: {e}")
+        return False

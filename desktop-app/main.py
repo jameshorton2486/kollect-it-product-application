@@ -20,6 +20,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+# Application constants
 VERSION = "1.0.0"
 IMAGE_GRID_COLUMNS = 4
 THUMBNAIL_SIZE = 150
@@ -30,36 +31,29 @@ MAX_AI_IMAGES_VALUATION = 3
 # Load environment variables from .env file (if available)
 try:
     from dotenv import load_dotenv
-    # Load .env from desktop-app directory
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
         load_dotenv(env_path, override=True)
 except ImportError:
-    # python-dotenv not installed, continue without .env support
     pass
 
+# PyQt5 imports
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QProgressBar, QTextEdit, QComboBox,
     QLineEdit, QSpinBox, QDoubleSpinBox, QCheckBox, QTabWidget,
-    QListWidget, QListWidgetItem, QFileDialog, QMessageBox,
-    QGroupBox, QFormLayout, QSplitter, QFrame, QScrollArea,
-    QSlider, QDialog, QDialogButtonBox, QToolBar, QAction,
-    QStatusBar, QMenuBar, QMenu, QGridLayout, QSizePolicy
+    QFileDialog, QMessageBox, QGroupBox, QFormLayout, QScrollArea,
+    QSlider, QDialog, QToolBar, QAction, QGridLayout
 )
-from PyQt5.QtCore import (
-    Qt, QThread, pyqtSignal, QUrl, QMimeData, QSize, QTimer
-)
-from PyQt5.QtGui import (
-    QPixmap, QImage, QIcon, QFont, QPalette, QColor,
-    QDragEnterEvent, QDropEvent, QPainter, QPen
-)
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap
 
 # Import custom modules
-# pyright: reportMissingImports=false
+from modules.theme import DarkPalette
+from modules.widgets import DropZone, ImageThumbnail
+from modules.workers import ProcessingThread
 from modules.image_processor import ImageProcessor  # type: ignore
 from modules.imagekit_uploader import ImageKitUploader  # type: ignore
-from modules.sku_generator import SKUGenerator  # type: ignore
 from modules.sku_scanner import SKUScanner  # type: ignore
 from modules.ai_engine import AIEngine  # type: ignore
 from modules.background_remover import BackgroundRemover, check_rembg_installation, REMBG_AVAILABLE  # type: ignore
@@ -69,913 +63,146 @@ from modules.output_generator import OutputGenerator  # type: ignore
 from modules.config_validator import ConfigValidator  # type: ignore
 
 
-class DarkPalette:
-    """Dark theme color palette for the application - IMPROVED READABILITY."""
-
-    # Backgrounds - slightly lighter for better contrast
-    BACKGROUND = "#1e1e2e"       # Main background (was #1a1a2e)
-    SURFACE = "#1a1a2e"          # Card/panel background (was #16213e)
-    SURFACE_LIGHT = "#252542"    # Hover states (was #1f3460)
-
-    # Primary colors
-    PRIMARY = "#e94560"          # Accent color (unchanged)
-    PRIMARY_DARK = "#c73e54"     # Darker accent (unchanged)
-    SECONDARY = "#0f3460"        # Secondary accent (unchanged)
-
-    # Text colors - IMPROVED CONTRAST
-    TEXT = "#ffffff"             # Primary text - pure white (was #eaeaea)
-    TEXT_SECONDARY = "#b4b4b4"   # Secondary text - lighter (was #a0a0a0)
-    TEXT_MUTED = "#8888a0"       # Muted/placeholder text (new)
-
-    # Borders
-    BORDER = "#3d3d5c"           # Border color - more visible (was #2d3748)
-    BORDER_FOCUS = "#e94560"     # Focus border (new)
-
-    # Status colors
-    SUCCESS = "#4ade80"          # Brighter green (was #48bb78)
-    WARNING = "#fbbf24"          # Brighter yellow (was #ed8936)
-    ERROR = "#f87171"            # Error red (was #fc8181)
-    INFO = "#60a5fa"             # Info blue (new)
-
-    @classmethod
-    def get_stylesheet(cls) -> str:
-        return f"""
-            /* ============================================
-               GLOBAL STYLES - Larger base font
-               ============================================ */
-            QMainWindow, QWidget {{
-                background-color: {cls.BACKGROUND};
-                color: {cls.TEXT};
-                font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 16px;
-            }}
-
-            /* ============================================
-               GROUP BOXES - Section containers
-               ============================================ */
-            QGroupBox {{
-                background-color: {cls.SURFACE};
-                border: 1px solid {cls.BORDER};
-                border-radius: 8px;
-                margin-top: 16px;
-                padding: 16px;
-                padding-top: 24px;
-                font-weight: bold;
-                font-size: 17px;
-            }}
-
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 16px;
-                top: 4px;
-                padding: 0 10px;
-                color: {cls.PRIMARY};
-                font-size: 17px;
-                font-weight: bold;
-            }}
-
-            /* ============================================
-               BUTTONS - More prominent
-               ============================================ */
-            QPushButton {{
-                background-color: {cls.PRIMARY};
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 12px 24px;
-                font-weight: bold;
-                font-size: 16px;
-                min-height: 24px;
-            }}
-
-            QPushButton:hover {{
-                background-color: {cls.PRIMARY_DARK};
-            }}
-
-            QPushButton:pressed {{
-                background-color: #a83246;
-            }}
-
-            QPushButton:disabled {{
-                background-color: #3d3d5c;
-                color: #6b6b8a;
-            }}
-
-            QPushButton.secondary {{
-                background-color: {cls.SECONDARY};
-            }}
-
-            QPushButton.secondary:hover {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            /* ============================================
-               INPUT FIELDS - Better visibility
-               ============================================ */
-            QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
-                background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 6px;
-                padding: 10px 14px;
-                color: {cls.TEXT};
-                font-size: 16px;
-                min-height: 20px;
-            }}
-
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{
-                border-color: {cls.PRIMARY};
-                background-color: #1e1e32;
-            }}
-
-            QLineEdit::placeholder, QTextEdit::placeholder {{
-                color: {cls.TEXT_MUTED};
-            }}
-
-            /* ============================================
-               COMBO BOX - Dropdown styling
-               ============================================ */
-            QComboBox {{
-                padding-right: 30px;
-            }}
-
-            QComboBox::drop-down {{
-                border: none;
-                width: 30px;
-            }}
-
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 6px solid transparent;
-                border-right: 6px solid transparent;
-                border-top: 8px solid {cls.TEXT};
-                margin-right: 12px;
-            }}
-
-            QComboBox QAbstractItemView {{
-                background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 6px;
-                color: {cls.TEXT};
-                selection-background-color: {cls.SURFACE_LIGHT};
-                padding: 4px;
-                font-size: 16px;
-            }}
-
-            QComboBox QAbstractItemView::item {{
-                padding: 8px 12px;
-                min-height: 28px;
-            }}
-
-            QComboBox QAbstractItemView::item:hover {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            /* ============================================
-               SPIN BOXES - Number inputs
-               ============================================ */
-            QSpinBox::up-button, QDoubleSpinBox::up-button,
-            QSpinBox::down-button, QDoubleSpinBox::down-button {{
-                background-color: {cls.SURFACE_LIGHT};
-                border: none;
-                width: 24px;
-            }}
-
-            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-                background-color: {cls.PRIMARY};
-            }}
-
-            /* ============================================
-               PROGRESS BAR - More visible
-               ============================================ */
-            QProgressBar {{
-                background-color: {cls.SURFACE};
-                border: none;
-                border-radius: 6px;
-                height: 12px;
-                text-align: center;
-                font-size: 13px;
-                color: {cls.TEXT};
-            }}
-
-            QProgressBar::chunk {{
-                background-color: {cls.PRIMARY};
-                border-radius: 6px;
-            }}
-
-            /* ============================================
-               LIST WIDGET - File lists
-               ============================================ */
-            QListWidget {{
-                background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 6px;
-                padding: 6px;
-                font-size: 16px;
-            }}
-
-            QListWidget::item {{
-                padding: 10px;
-                border-radius: 4px;
-                margin: 2px 0;
-            }}
-
-            QListWidget::item:selected {{
-                background-color: {cls.SURFACE_LIGHT};
-                color: {cls.TEXT};
-            }}
-
-            QListWidget::item:hover {{
-                background-color: {cls.SECONDARY};
-            }}
-
-            /* ============================================
-               TABS - Navigation tabs
-               ============================================ */
-            QTabWidget::pane {{
-                background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 8px;
-                top: -2px;
-            }}
-
-            QTabBar::tab {{
-                background-color: {cls.SURFACE};
-                color: {cls.TEXT_SECONDARY};
-                padding: 12px 24px;
-                margin-right: 4px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-                font-size: 16px;
-                font-weight: bold;
-                border: 2px solid transparent;
-                border-bottom: none;
-            }}
-
-            QTabBar::tab:selected {{
-                background-color: {cls.SURFACE};
-                color: {cls.PRIMARY};
-                border-color: {cls.BORDER};
-            }}
-
-            QTabBar::tab:hover:!selected {{
-                background-color: {cls.SURFACE_LIGHT};
-                color: {cls.TEXT};
-            }}
-
-            /* ============================================
-               SCROLL BARS - Wider and more visible
-               ============================================ */
-            QScrollBar:vertical {{
-                background-color: {cls.SURFACE};
-                width: 14px;
-                border-radius: 7px;
-                margin: 2px;
-            }}
-
-            QScrollBar::handle:vertical {{
-                background-color: {cls.BORDER};
-                border-radius: 7px;
-                min-height: 40px;
-            }}
-
-            QScrollBar::handle:vertical:hover {{
-                background-color: {cls.TEXT_MUTED};
-            }}
-
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-                height: 0px;
-            }}
-
-            QScrollBar:horizontal {{
-                background-color: {cls.SURFACE};
-                height: 14px;
-                border-radius: 7px;
-                margin: 2px;
-            }}
-
-            QScrollBar::handle:horizontal {{
-                background-color: {cls.BORDER};
-                border-radius: 7px;
-                min-width: 40px;
-            }}
-
-            /* ============================================
-               LABELS - Text styling
-               ============================================ */
-            QLabel {{
-                color: {cls.TEXT};
-                font-size: 16px;
-            }}
-
-            QLabel.title {{
-                font-size: 30px;
-                font-weight: bold;
-                color: {cls.PRIMARY};
-            }}
-
-            QLabel.subtitle {{
-                font-size: 18px;
-                color: {cls.TEXT_SECONDARY};
-            }}
-
-            QLabel.section-header {{
-                font-size: 18px;
-                font-weight: bold;
-                color: {cls.PRIMARY};
-            }}
-
-            /* ============================================
-               CHECKBOXES
-               ============================================ */
-            QCheckBox {{
-                color: {cls.TEXT};
-                spacing: 10px;
-                font-size: 16px;
-            }}
-
-            QCheckBox::indicator {{
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
-                border: 2px solid {cls.BORDER};
-                background-color: {cls.SURFACE};
-            }}
-
-            QCheckBox::indicator:checked {{
-                background-color: {cls.PRIMARY};
-                border-color: {cls.PRIMARY};
-            }}
-
-            QCheckBox::indicator:hover {{
-                border-color: {cls.PRIMARY};
-            }}
-
-            /* ============================================
-               SLIDERS
-               ============================================ */
-            QSlider::groove:horizontal {{
-                height: 8px;
-                background-color: {cls.SURFACE};
-                border-radius: 4px;
-            }}
-
-            QSlider::handle:horizontal {{
-                width: 20px;
-                height: 20px;
-                margin: -6px 0;
-                background-color: {cls.PRIMARY};
-                border-radius: 10px;
-            }}
-
-            QSlider::handle:horizontal:hover {{
-                background-color: {cls.PRIMARY_DARK};
-            }}
-
-            QSlider::sub-page:horizontal {{
-                background-color: {cls.PRIMARY};
-                border-radius: 4px;
-            }}
-
-            /* ============================================
-               STATUS BAR
-               ============================================ */
-            QStatusBar {{
-                background-color: {cls.SURFACE};
-                color: {cls.TEXT};
-                font-size: 15px;
-                padding: 6px;
-                border-top: 1px solid {cls.BORDER};
-            }}
-
-            /* ============================================
-               MENU BAR
-               ============================================ */
-            QMenuBar {{
-                background-color: {cls.SURFACE};
-                color: {cls.TEXT};
-                padding: 6px;
-                font-size: 16px;
-            }}
-
-            QMenuBar::item {{
-                padding: 8px 14px;
-                border-radius: 4px;
-            }}
-
-            QMenuBar::item:selected {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            QMenu {{
-                background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 8px;
-                padding: 6px;
-                font-size: 16px;
-            }}
-
-            QMenu::item {{
-                padding: 10px 28px;
-                border-radius: 4px;
-            }}
-
-            QMenu::item:selected {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            QMenu::separator {{
-                height: 1px;
-                background-color: {cls.BORDER};
-                margin: 6px 10px;
-            }}
-
-            /* ============================================
-               TOOLBAR
-               ============================================ */
-            QToolBar {{
-                background-color: {cls.SURFACE};
-                border: none;
-                spacing: 10px;
-                padding: 10px;
-                border-bottom: 1px solid {cls.BORDER};
-            }}
-
-            QToolBar QToolButton {{
-                background-color: transparent;
-                color: {cls.TEXT};
-                padding: 8px 14px;
-                border-radius: 6px;
-                font-size: 16px;
-            }}
-
-            QToolBar QToolButton:hover {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            /* ============================================
-               TEXT EDIT - Activity log, descriptions
-               ============================================ */
-            QTextEdit {{
-                font-size: 16px;
-                line-height: 1.5;
-            }}
-
-            /* ============================================
-               FORM LABELS - Row labels
-               ============================================ */
-            QFormLayout QLabel {{
-                font-size: 16px;
-                font-weight: 500;
-                color: {cls.TEXT_SECONDARY};
-                min-width: 90px;
-            }}
-
-            /* ============================================
-               TOOLTIPS
-               ============================================ */
-            QToolTip {{
-                background-color: {cls.SURFACE_LIGHT};
-                color: {cls.TEXT};
-                border: 1px solid {cls.BORDER};
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 15px;
-            }}
-        """
-
-
-class DropZone(QFrame):
-    """Custom drag-and-drop zone for product folders."""
-
-    folder_dropped = pyqtSignal(str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.browse_btn = None  # Initialize attribute
-        self.browse_files_btn = None  # Initialize attribute for new button
-        self.setAcceptDrops(True)
-        self.setMinimumHeight(200)
-        self.setup_ui()
-
-    def setup_ui(self):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DarkPalette.SURFACE};
-                border: 2px dashed {DarkPalette.BORDER};
-                border-radius: 12px;
-            }}
-            QFrame:hover {{
-                border-color: {DarkPalette.PRIMARY};
-            }}
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)  # type: ignore
-
-        # Icon placeholder
-        icon_label = QLabel("📁")
-        icon_label.setStyleSheet("font-size: 48px; border: none;")
-        icon_label.setAlignment(Qt.AlignCenter)  # type: ignore
-        layout.addWidget(icon_label)
-
-        # Main text
-        main_text = QLabel("Drag & Drop Product Folder Here")
-        main_text.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-size: 20px;
-                font-weight: bold;
-            }
-        """)
-        main_text.setAlignment(Qt.AlignCenter)  # type: ignore
-        layout.addWidget(main_text)
-
-        # Sub text
-        sub_text = QLabel("or click Browse to select folder/files")
-        sub_text.setStyleSheet("""
-            QLabel {
-                color: #b4b4b4;
-                font-size: 16px;
-            }
-        """)
-        sub_text.setAlignment(Qt.AlignCenter)  # type: ignore
-        layout.addWidget(sub_text)
-
-        # Browse buttons container
-        browse_layout = QHBoxLayout()
-
-        # Browse folder button
-        self.browse_btn = QPushButton("Browse Folder")
-        self.browse_btn.setMaximumWidth(150)
-        self.browse_btn.clicked.connect(self.browse_folder)
-        browse_layout.addWidget(self.browse_btn)
-
-        # Browse files button
-        self.browse_files_btn = QPushButton("Browse Files")
-        self.browse_files_btn.setMaximumWidth(150)
-        self.browse_files_btn.clicked.connect(self.browse_files)
-        browse_layout.addWidget(self.browse_files_btn)
-
-        # Add browse buttons layout to main layout
-        browse_container = QWidget()
-        browse_container.setLayout(browse_layout)
-        layout.addWidget(browse_container, alignment=Qt.AlignCenter)  # type: ignore
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-            self.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {DarkPalette.SURFACE_LIGHT};
-                    border: 2px dashed {DarkPalette.PRIMARY};
-                    border-radius: 12px;
-                }}
-            """)
-
-    def dragLeaveEvent(self, event):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DarkPalette.SURFACE};
-                border: 2px dashed {DarkPalette.BORDER};
-                border-radius: 12px;
-            }}
-        """)
-
-    def dropEvent(self, event: QDropEvent):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DarkPalette.SURFACE};
-                border: 2px dashed {DarkPalette.BORDER};
-                border-radius: 12px;
-            }}
-        """)
-
-        urls = event.mimeData().urls()
-        if urls:
-            path = urls[0].toLocalFile()
-            if os.path.isdir(path):
-                self.folder_dropped.emit(path)
-            else:
-                QMessageBox.warning(
-                    self, "Invalid Selection",
-                    "Please drop a folder containing product images."
-                )
-
-    def _get_default_browse_path(self) -> str:
-        """Get default browse path from config or fall back to home."""
-        if hasattr(self, 'config') and self.config:
-            config_path = self.config.get("paths", {}).get("default_browse", "")
-            if config_path and Path(config_path).exists():
-                return config_path
-            camera_path = self.config.get("paths", {}).get("camera_import", "")
-            if camera_path and Path(camera_path).exists():
-                return camera_path
-        return str(Path.home())
-
-    def browse_folder(self):
-        # Get default path from config, fallback to user's home directory
-        default_path = self._get_default_browse_path()
-
-        # Use a custom file dialog to allow seeing files while selecting a folder
-        dialog = QFileDialog(self, "Select Product Folder", default_path)
-        dialog.setFileMode(QFileDialog.Directory)
-        dialog.setOption(QFileDialog.ShowDirsOnly, False)  # Allow seeing files
-        dialog.setViewMode(QFileDialog.Detail)  # Try to show details/icons
-        dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.webp *.tiff *.bmp);;All Files (*)")
-
-        if dialog.exec_() == QFileDialog.Accepted:
-            folder = dialog.selectedFiles()[0]
-            if folder:
-                self.folder_dropped.emit(folder)
-
-    def browse_files(self):
-        # Get default path from config, fallback to user's home directory
-        default_path = ""
-
-        # Get path from config
-        if hasattr(self, 'config'):
-            default_path = self.config.get("paths", {}).get("camera_import", "")
-            if default_path:
-                requested_path = Path(default_path)
-                if requested_path.exists():
-                    default_path = str(requested_path)
-                else:
-                    default_path = ""
-
-        if not default_path:
-            default_path = str(Path.home())
-
-        # Define image file filters
-        file_filter = "Image Files (*.png *.jpg *.jpeg *.webp *.tiff *.bmp);;PNG Files (*.png);;JPEG Files (*.jpg *.jpeg);;WebP Files (*.webp);;All Files (*.*)"
-
-        files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Image Files",
-            default_path, file_filter
-        )
-        if files:
-            # Create a temporary folder structure for individual files
-            import tempfile
-            import shutil
-
-            # Create a temporary directory to hold the selected files
-            temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
-            # Track temp dir in the main window application
-            if hasattr(self.window(), '_temp_dirs'):
-                self.window()._temp_dirs.append(temp_dir)
-
-            # Copy selected files to temp directory
-            for file_path in files:
-                file_name = Path(file_path).name
-                temp_file_path = Path(temp_dir) / file_name
-                shutil.copy2(file_path, temp_file_path)
-
-            # Emit the temporary folder as if it was dropped/selected
-            self.folder_dropped.emit(temp_dir)
-
-
-class ImageThumbnail(QLabel):
-    """Clickable image thumbnail with edit options."""
-
-    clicked = pyqtSignal(str)
-    crop_requested = pyqtSignal(str)
-    remove_bg_requested = pyqtSignal(str)
-
-    def __init__(self, image_path: str, parent=None):
-        super().__init__(parent)
-        self.image_path = image_path
-        self.is_selected = False  # Track selection state
-        # Increased size for "large format" display
-        self.setFixedSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
-        self.setCursor(Qt.PointingHandCursor)  # type: ignore
-        self.load_image()
-
-    def set_selected(self, selected: bool):
-        """Set the selected state and update style."""
-        self.is_selected = selected
-        self.update_style()
-
-    def update_style(self):
-        """Update the stylesheet based on state."""
-        border_color = DarkPalette.PRIMARY if self.is_selected else DarkPalette.BORDER
-        border_width = "4px" if self.is_selected else "2px"
-
-        self.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DarkPalette.SURFACE};
-                border: {border_width} solid {border_color};
-                border-radius: 8px;
-                padding: 4px;
-            }}
-            QLabel:hover {{
-                border-color: {DarkPalette.PRIMARY};
-            }}
-        """)
-
-    def load_image(self):
-        pixmap = QPixmap(self.image_path)
-        if not pixmap.isNull():
-            scaled = pixmap.scaled(
-                self.size(),
-                Qt.KeepAspectRatio,  # type: ignore
-                Qt.SmoothTransformation  # type: ignore
-            )
-            self.setPixmap(scaled)
-        self.update_style()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:  # type: ignore
-            self.clicked.emit(self.image_path)
-        elif event.button() == Qt.RightButton:  # type: ignore
-            self.show_context_menu(event.pos())
-
-    def show_context_menu(self, pos):
-        menu = QMenu(self)
-        crop_action = menu.addAction("✂️ Crop Image")
-        bg_action = menu.addAction("🎨 Remove Background")
-        preview_action = menu.addAction("🔍 Preview Full Size")
-
-        action = menu.exec_(self.mapToGlobal(pos))
-        if action == crop_action:
-            self.crop_requested.emit(self.image_path)
-        elif action == bg_action:
-            self.remove_bg_requested.emit(self.image_path)
-        elif action == preview_action:
-            self.clicked.emit(self.image_path)
-
-
-class ProcessingThread(QThread):
-    """Background thread for image processing tasks."""
-
-    progress = pyqtSignal(int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
-
-    def __init__(self, folder_path: str, config: dict, options: dict):
-        super().__init__()
-        self.folder_path = folder_path
-        self.config = config
-        self.options = options
-
-    def run(self):
-        try:
-            processor = ImageProcessor(self.config)
-            results = {"images": [], "errors": []}
-
-            # Get all images in folder
-            image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.bmp'}
-            images = [
-                f for f in Path(self.folder_path).iterdir()
-                if f.suffix.lower() in image_extensions
-            ]
-
-            total = len(images)
-
-            for i, img_path in enumerate(images):
-                self.progress.emit(
-                    int((i / total) * 100),
-                    f"Processing: {img_path.name}"
-                )
-
-                try:
-                    result = processor.process_image(
-                        str(img_path),
-                        self.options
-                    )
-                    results["images"].append(result)
-                except Exception as e:
-                    results["errors"].append({
-                        "file": img_path.name,
-                        "error": str(e)
-                    })
-
-            self.progress.emit(100, "Processing complete!")
-            self.finished.emit(results)
-
-        except Exception as e:
-            self.error.emit(str(e))
-
-
 class KollectItApp(QMainWindow):
     """Main application window for Kollect-It Product Manager."""
 
     def __init__(self):
         super().__init__()
-        self.config = self.load_config()
+        self.config = self._load_config()
 
-        # Initialize SKU Scanner and Output Generator
+        # Initialize core services
         products_root = self.config.get("paths", {}).get("products_root", r"G:\My Drive\Kollect-It\Products")
         self.sku_scanner = SKUScanner(products_root, self.config.get("categories", {}))
         self.output_generator = OutputGenerator(self.config)
-        self.last_valuation = None
-        self.current_folder = None
-        self._temp_dirs = []  # Track temporary directories for cleanup
-        self.current_images = []
-        self.uploaded_image_urls = []  # Store URLs after ImageKit upload
-        self.processing_thread = None
 
-        # Initialize UI component attributes
-        self.drop_zone = None
-        self.image_grid = None
-        self.image_grid_layout = None
-        self.crop_all_btn = None
-        self.remove_bg_btn = None
-        self.optimize_btn = None
-        self.upload_btn = None
-        self.export_btn = None
-        self.title_edit = None
-        self.sku_edit = None
-        self.category_combo = None
-        self.subcategory_combo = None
-        self.price_spin = None
-        self.condition_combo = None
-        self.era_edit = None
-        self.origin_edit = None
-        self.description_edit = None
-        self.generate_desc_btn = None
-        self.generate_valuation_btn = None
-        self.seo_title_edit = None
-        self.seo_desc_edit = None
-        self.seo_keywords_edit = None
-        self.bg_removal_check = None
-        self.bg_strength_slider = None
-        self.progress_bar = None
-        self.status_label = None
-        self.log_output = None
-        self.regenerate_sku_btn = None
+        # State management
+        self.last_valuation: Optional[Dict[str, Any]] = None
+        self.current_folder: Optional[str] = None
+        self._temp_dirs: List[str] = []
+        self.current_images: List[str] = []
+        self.uploaded_image_urls: List[str] = []
+        self.processing_thread: Optional[ProcessingThread] = None
 
-        # Settings dialog attributes
-        self.api_key_edit = None
-        self.prod_url_edit = None
-        self.use_prod_check = None
-        self.ik_public_edit = None
-        self.ik_private_edit = None
-        self.ik_url_edit = None
-        # API key is read from environment variable only
-        self.ai_model_edit = None
-        self.max_dim_spin = None
-        self.quality_spin = None
-        self.strip_exif_check = None
+        # UI component references (initialized in setup_ui)
+        self._init_ui_attributes()
 
-        self.setup_ui()
-        self.setup_menu()
-        self.setup_toolbar()
-        self.setup_statusbar()
+        # Build the UI
+        self._setup_ui()
+        self._setup_menu()
+        self._setup_toolbar()
+        self._setup_statusbar()
 
-    def load_config(self) -> dict:
+    def _init_ui_attributes(self) -> None:
+        """Initialize UI component attribute placeholders."""
+        # Main components
+        self.drop_zone: Optional[DropZone] = None
+        self.image_grid: Optional[QWidget] = None
+        self.image_grid_layout: Optional[QGridLayout] = None
+
+        # Action buttons
+        self.crop_all_btn: Optional[QPushButton] = None
+        self.remove_bg_btn: Optional[QPushButton] = None
+        self.optimize_btn: Optional[QPushButton] = None
+        self.upload_btn: Optional[QPushButton] = None
+        self.export_btn: Optional[QPushButton] = None
+        self.regenerate_sku_btn: Optional[QPushButton] = None
+
+        # Form fields
+        self.title_edit: Optional[QLineEdit] = None
+        self.sku_edit: Optional[QLineEdit] = None
+        self.category_combo: Optional[QComboBox] = None
+        self.subcategory_combo: Optional[QComboBox] = None
+        self.price_spin: Optional[QDoubleSpinBox] = None
+        self.condition_combo: Optional[QComboBox] = None
+        self.era_edit: Optional[QLineEdit] = None
+        self.origin_edit: Optional[QLineEdit] = None
+        self.description_edit: Optional[QTextEdit] = None
+
+        # AI buttons
+        self.generate_desc_btn: Optional[QPushButton] = None
+        self.generate_valuation_btn: Optional[QPushButton] = None
+
+        # SEO fields
+        self.seo_title_edit: Optional[QLineEdit] = None
+        self.seo_desc_edit: Optional[QTextEdit] = None
+        self.seo_keywords_edit: Optional[QLineEdit] = None
+
+        # Settings
+        self.bg_removal_check: Optional[QCheckBox] = None
+        self.bg_strength_slider: Optional[QSlider] = None
+
+        # Progress & logging
+        self.progress_bar: Optional[QProgressBar] = None
+        self.status_label: Optional[QLabel] = None
+        self.log_output: Optional[QTextEdit] = None
+
+        # Settings dialog fields
+        self.api_key_edit: Optional[QLineEdit] = None
+        self.prod_url_edit: Optional[QLineEdit] = None
+        self.use_prod_check: Optional[QCheckBox] = None
+        self.ik_public_edit: Optional[QLineEdit] = None
+        self.ik_private_edit: Optional[QLineEdit] = None
+        self.ik_url_edit: Optional[QLineEdit] = None
+        self.anthropic_key_edit: Optional[QLineEdit] = None
+        self.ai_model_edit: Optional[QLineEdit] = None
+        self.max_dim_spin: Optional[QSpinBox] = None
+        self.quality_spin: Optional[QSpinBox] = None
+        self.strip_exif_check: Optional[QCheckBox] = None
+
+    # -------------------------------------------------------------------------
+    # Configuration Management
+    # -------------------------------------------------------------------------
+
+    def _load_config(self) -> Dict[str, Any]:
         """Load configuration from config.json with validation and .env override."""
         config_path = Path(__file__).parent / "config" / "config.json"
 
-        # Check if config exists
         if not config_path.exists():
-            error_msg = (
+            self._show_config_error(
                 "Configuration file not found!\n\n"
                 f"Expected: {config_path}\n\n"
-                "Please copy config.example.json to config.json and configure your API keys:\n"
-                "1. Copy config/config.example.json to config/config.json\n"
-                "2. Add your SERVICE_API_KEY\n"
-                "3. Add your ImageKit credentials\n"
-                "4. Add your Anthropic API key"
+                "Please copy config.example.json to config.json and configure your API keys."
             )
-            QMessageBox.critical(None, "Configuration Error", error_msg)
             sys.exit(1)
 
-        # Try to parse config
         try:
-            # Try to load with .env support
-            try:
-                from modules.env_loader import load_config_with_env
-                config = load_config_with_env(config_path)
-            except ImportError:
-                # Fallback to standard JSON loading if env_loader not available
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-
-            # Validate configuration
-            validator = ConfigValidator()
-            validation_result = validator.validate(config)
-            if not validation_result.get("valid", True):
-                QMessageBox.warning(
-                    None, "Configuration Warning",
-                    f"Configuration issues found: {validation_result.get('errors', [])}"
-                )
+            config = self._load_config_file(config_path)
+            self._validate_config(config)
+            return config
         except json.JSONDecodeError as e:
-            QMessageBox.critical(
-                None, "Configuration Error",
-                f"Invalid JSON in config.json:\n\n{e}\n\nPlease fix the syntax error."
-            )
+            self._show_config_error(f"Invalid JSON in config.json:\n\n{e}")
             sys.exit(1)
         except Exception as e:
-            QMessageBox.critical(
-                None, "Configuration Error",
-                f"Error reading config.json:\n\n{e}"
-            )
+            self._show_config_error(f"Error reading config.json:\n\n{e}")
             sys.exit(1)
 
-        # Validate required sections
+    def _load_config_file(self, config_path: Path) -> Dict[str, Any]:
+        """Load config file with optional .env support."""
+        try:
+            from modules.env_loader import load_config_with_env
+            return load_config_with_env(config_path)
+        except ImportError:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        """Validate configuration and show warnings."""
+        validator = ConfigValidator(config)
+        is_valid, errors, warnings = validator.validate()
+
+        if not is_valid:
+            QMessageBox.warning(
+                None, "Configuration Warning",
+                f"Configuration issues found:\n\n" + "\n".join(errors)
+            )
+
+        if warnings:
+            for warning in warnings:
+                print(f"Config warning: {warning}")
+
+        # Check required sections
         required_sections = ["api", "imagekit", "categories", "image_processing"]
         missing = [s for s in required_sections if s not in config]
-
         if missing:
             QMessageBox.warning(
                 None, "Configuration Warning",
@@ -983,47 +210,51 @@ class KollectItApp(QMainWindow):
                 "Some features may not work correctly."
             )
 
-        # Validate API keys are not placeholder values (check .env first, then config)
-        api_key = os.getenv("SERVICE_API_KEY") or config.get("api", {}).get("SERVICE_API_KEY", "")
-        if not api_key or api_key in ("YOUR_SERVICE_API_KEY_HERE", ""):
-            QMessageBox.warning(
-                None, "Configuration Warning",
-                "SERVICE_API_KEY is not configured.\n\n"
-                "Add it to .env file or config.json if needed for future features."
-            )
+    def _show_config_error(self, message: str) -> None:
+        """Show a configuration error dialog."""
+        QMessageBox.critical(None, "Configuration Error", message)
 
-        return config
-
-    def save_config(self):
+    def _save_config(self) -> None:
         """Save configuration to config.json."""
         config_path = Path(__file__).parent / "config" / "config.json"
-        with open(config_path, 'w') as f:
+        with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(self.config, f, indent=2)
 
-    def setup_ui(self):
+    # -------------------------------------------------------------------------
+    # UI Setup
+    # -------------------------------------------------------------------------
+
+    def _setup_ui(self) -> None:
         """Initialize the main user interface."""
         self.setWindowTitle(f"Kollect-It Product Manager v{VERSION}")
         self.setMinimumSize(1600, 1000)
         self.setStyleSheet(DarkPalette.get_stylesheet())
 
-        # Central widget
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
         main_layout.setSpacing(16)
         main_layout.setContentsMargins(16, 16, 16, 16)
 
-        # Left panel - Input & Images
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setSpacing(12)
+        # Build panels
+        left_panel = self._build_left_panel()
+        right_panel = self._build_right_panel()
+
+        main_layout.addWidget(left_panel, stretch=1)
+        main_layout.addWidget(right_panel, stretch=1)
+
+    def _build_left_panel(self) -> QWidget:
+        """Build the left panel with drop zone and image grid."""
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setSpacing(12)
 
         # Drop zone
-        self.drop_zone = DropZone()
-        self.drop_zone.folder_dropped.connect(self.on_folder_dropped)
-        left_layout.addWidget(self.drop_zone)
+        self.drop_zone = DropZone(config=self.config)
+        self.drop_zone.folder_dropped.connect(self._on_folder_dropped)
+        layout.addWidget(self.drop_zone)
 
-        # New Product button below drop zone
+        # New Product button
         new_product_btn = QPushButton("📦 Add New Product")
         new_product_btn.setMinimumHeight(40)
         new_product_btn.setStyleSheet("""
@@ -1038,14 +269,13 @@ class KollectItApp(QMainWindow):
                 background-color: #38a169;
             }
         """)
-        new_product_btn.clicked.connect(self.open_import_wizard)
-        left_layout.addWidget(new_product_btn)
+        new_product_btn.clicked.connect(self._open_import_wizard)
+        layout.addWidget(new_product_btn)
 
         # Image preview section
         images_group = QGroupBox("Product Images")
         images_layout = QVBoxLayout(images_group)
 
-        # Image grid scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(200)
@@ -1061,35 +291,52 @@ class KollectItApp(QMainWindow):
 
         self.crop_all_btn = QPushButton("✂️ Crop Selected")
         self.crop_all_btn.setEnabled(False)
-        self.crop_all_btn.clicked.connect(self.crop_selected_image)
+        self.crop_all_btn.clicked.connect(self._crop_selected_image)
         img_actions.addWidget(self.crop_all_btn)
 
         self.remove_bg_btn = QPushButton("🎨 Remove Background")
         self.remove_bg_btn.setEnabled(False)
-        self.remove_bg_btn.clicked.connect(self.remove_background)
+        self.remove_bg_btn.clicked.connect(self._remove_background)
         img_actions.addWidget(self.remove_bg_btn)
 
         self.optimize_btn = QPushButton("⚡ Optimize All")
         self.optimize_btn.setEnabled(False)
-        self.optimize_btn.clicked.connect(self.optimize_images)
+        self.optimize_btn.clicked.connect(self._optimize_images)
         img_actions.addWidget(self.optimize_btn)
 
         images_layout.addLayout(img_actions)
-        left_layout.addWidget(images_group)
+        layout.addWidget(images_group)
 
-        main_layout.addWidget(left_panel, stretch=1)
+        return panel
 
-        # Right panel - Product Details & Actions
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setSpacing(12)
+    def _build_right_panel(self) -> QWidget:
+        """Build the right panel with product details and actions."""
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setSpacing(12)
 
-        # Tabs for different sections
+        # Tabs
         tabs = QTabWidget()
+        tabs.addTab(self._build_details_tab(), "📦 Product Details")
+        tabs.addTab(self._build_seo_tab(), "🔍 SEO")
+        tabs.addTab(self._build_settings_tab(), "⚙️ Settings")
+        layout.addWidget(tabs)
 
-        # Product Details Tab
-        details_tab = QWidget()
-        details_layout = QVBoxLayout(details_tab)
+        # Progress section
+        layout.addWidget(self._build_progress_section())
+
+        # Action buttons
+        layout.addLayout(self._build_action_buttons())
+
+        # Log output
+        layout.addWidget(self._build_log_section())
+
+        return panel
+
+    def _build_details_tab(self) -> QWidget:
+        """Build the Product Details tab."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
 
         form = QFormLayout()
         form.setSpacing(12)
@@ -1097,10 +344,10 @@ class KollectItApp(QMainWindow):
         # Title
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("Enter product title...")
-        self.title_edit.textChanged.connect(self.update_export_button_state)
+        self.title_edit.textChanged.connect(self._update_export_button_state)
         form.addRow("Title:", self.title_edit)
 
-        # SKU (auto-generated)
+        # SKU
         sku_layout = QHBoxLayout()
         self.sku_edit = QLineEdit()
         self.sku_edit.setReadOnly(True)
@@ -1108,42 +355,27 @@ class KollectItApp(QMainWindow):
         sku_layout.addWidget(self.sku_edit)
         self.regenerate_sku_btn = QPushButton("🔄")
         self.regenerate_sku_btn.setMaximumWidth(40)
-        self.regenerate_sku_btn.clicked.connect(self.regenerate_sku)
+        self.regenerate_sku_btn.clicked.connect(self._generate_sku)
         sku_layout.addWidget(self.regenerate_sku_btn)
         form.addRow("SKU:", sku_layout)
 
         # Category
         self.category_combo = QComboBox()
-        # Clear existing items
-        self.category_combo.clear()
-
-        # Add categories from config with proper data
-        for cat_id, cat_info in self.config.get("categories", {}).items():
-            display_name = cat_info.get("display_name", cat_info.get("name", cat_id.title()))
-            # addItem(display_text, user_data) - the second param is returned by currentData()
-            self.category_combo.addItem(display_name, cat_id)
-
-        # Set default selection
-        default_cat = self.config.get("defaults", {}).get("default_category", "collectibles")
-        index = self.category_combo.findData(default_cat)
-        if index >= 0:
-            self.category_combo.setCurrentIndex(index)
-        self.category_combo.currentIndexChanged.connect(self.on_category_changed)
+        self._populate_categories()
+        self.category_combo.currentIndexChanged.connect(self._on_category_changed)
         form.addRow("Category:", self.category_combo)
 
         # Subcategory
         self.subcategory_combo = QComboBox()
-        self.update_subcategories()
+        self._update_subcategories()
         form.addRow("Subcategory:", self.subcategory_combo)
 
         # Price
-        price_layout = QHBoxLayout()
         self.price_spin = QDoubleSpinBox()
         self.price_spin.setRange(0, 999999.99)
         self.price_spin.setPrefix("$ ")
         self.price_spin.setDecimals(2)
-        price_layout.addWidget(self.price_spin)
-        form.addRow("Suggested Price:", price_layout)
+        form.addRow("Suggested Price:", self.price_spin)
 
         # Condition
         self.condition_combo = QComboBox()
@@ -1161,9 +393,9 @@ class KollectItApp(QMainWindow):
         self.origin_edit.setPlaceholderText("e.g., United States, Germany")
         form.addRow("Origin:", self.origin_edit)
 
-        details_layout.addLayout(form)
+        layout.addLayout(form)
 
-        # Description
+        # Description section
         desc_group = QGroupBox("Description")
         desc_layout = QVBoxLayout(desc_group)
 
@@ -1174,41 +406,43 @@ class KollectItApp(QMainWindow):
 
         ai_btn_layout = QHBoxLayout()
         self.generate_desc_btn = QPushButton("✨ Generate with AI")
-        self.generate_desc_btn.clicked.connect(self.generate_description)
+        self.generate_desc_btn.clicked.connect(self._generate_description)
         ai_btn_layout.addWidget(self.generate_desc_btn)
 
         self.generate_valuation_btn = QPushButton("💰 Price Research")
-        self.generate_valuation_btn.clicked.connect(self.generate_valuation)
+        self.generate_valuation_btn.clicked.connect(self._generate_valuation)
         ai_btn_layout.addWidget(self.generate_valuation_btn)
         desc_layout.addLayout(ai_btn_layout)
 
-        details_layout.addWidget(desc_group)
-        tabs.addTab(details_tab, "📦 Product Details")
+        layout.addWidget(desc_group)
+        return tab
 
-        # SEO Tab
-        seo_tab = QWidget()
-        seo_layout = QFormLayout(seo_tab)
-        seo_layout.setSpacing(12)
+    def _build_seo_tab(self) -> QWidget:
+        """Build the SEO tab."""
+        tab = QWidget()
+        layout = QFormLayout(tab)
+        layout.setSpacing(12)
 
         self.seo_title_edit = QLineEdit()
         self.seo_title_edit.setPlaceholderText("SEO-optimized title")
-        seo_layout.addRow("SEO Title:", self.seo_title_edit)
+        layout.addRow("SEO Title:", self.seo_title_edit)
 
         self.seo_desc_edit = QTextEdit()
         self.seo_desc_edit.setMaximumHeight(100)
         self.seo_desc_edit.setPlaceholderText("Meta description (160 chars)")
-        seo_layout.addRow("Meta Description:", self.seo_desc_edit)
+        layout.addRow("Meta Description:", self.seo_desc_edit)
 
         self.seo_keywords_edit = QLineEdit()
         self.seo_keywords_edit.setPlaceholderText("keyword1, keyword2, keyword3")
-        seo_layout.addRow("Keywords:", self.seo_keywords_edit)
+        layout.addRow("Keywords:", self.seo_keywords_edit)
 
-        tabs.addTab(seo_tab, "🔍 SEO")
+        return tab
 
-        # Settings Tab
-        settings_tab = QWidget()
-        settings_layout = QFormLayout(settings_tab)
-        settings_layout.setSpacing(12)
+    def _build_settings_tab(self) -> QWidget:
+        """Build the Settings tab."""
+        tab = QWidget()
+        layout = QFormLayout(tab)
+        layout.setSpacing(12)
 
         self.bg_removal_check = QCheckBox("Enable AI Background Removal")
         self.bg_removal_check.setChecked(
@@ -1216,42 +450,42 @@ class KollectItApp(QMainWindow):
             .get("background_removal", {})
             .get("enabled", True)
         )
-        settings_layout.addRow(self.bg_removal_check)
+        layout.addRow(self.bg_removal_check)
 
         self.bg_strength_slider = QSlider(Qt.Horizontal)
         self.bg_strength_slider.setRange(1, 100)
         self.bg_strength_slider.setValue(80)
-        settings_layout.addRow("BG Removal Strength:", self.bg_strength_slider)
+        layout.addRow("BG Removal Strength:", self.bg_strength_slider)
 
-        tabs.addTab(settings_tab, "⚙️ Settings")
+        return tab
 
-        right_layout.addWidget(tabs)
-
-        # Progress section
-        progress_group = QGroupBox("Progress")
-        progress_layout = QVBoxLayout(progress_group)
+    def _build_progress_section(self) -> QGroupBox:
+        """Build the progress section."""
+        group = QGroupBox("Progress")
+        layout = QVBoxLayout(group)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
-        progress_layout.addWidget(self.progress_bar)
+        layout.addWidget(self.progress_bar)
 
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet(f"color: {DarkPalette.TEXT_SECONDARY};")
-        progress_layout.addWidget(self.status_label)
+        layout.addWidget(self.status_label)
 
-        right_layout.addWidget(progress_group)
+        return group
 
-        # Action buttons
-        actions_layout = QHBoxLayout()
+    def _build_action_buttons(self) -> QHBoxLayout:
+        """Build the main action buttons."""
+        layout = QHBoxLayout()
 
         self.upload_btn = QPushButton("☁️ Upload to ImageKit")
         self.upload_btn.setEnabled(False)
-        self.upload_btn.clicked.connect(self.upload_to_imagekit)
-        actions_layout.addWidget(self.upload_btn)
+        self.upload_btn.clicked.connect(self._upload_to_imagekit)
+        layout.addWidget(self.upload_btn)
 
         self.export_btn = QPushButton("📦 Export Package")
         self.export_btn.setEnabled(False)
-        self.export_btn.clicked.connect(self.export_package)
+        self.export_btn.clicked.connect(self._export_package)
         self.export_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DarkPalette.PRIMARY};
@@ -1262,13 +496,14 @@ class KollectItApp(QMainWindow):
                 background-color: {DarkPalette.PRIMARY_DARK};
             }}
         """)
-        actions_layout.addWidget(self.export_btn)
+        layout.addWidget(self.export_btn)
 
-        right_layout.addLayout(actions_layout)
+        return layout
 
-        # Log output
-        log_group = QGroupBox("Activity Log")
-        log_layout = QVBoxLayout(log_group)
+    def _build_log_section(self) -> QGroupBox:
+        """Build the activity log section."""
+        group = QGroupBox("Activity Log")
+        layout = QVBoxLayout(group)
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
@@ -1280,43 +515,36 @@ class KollectItApp(QMainWindow):
                 background-color: {DarkPalette.BACKGROUND};
             }}
         """)
-        log_layout.addWidget(self.log_output)
+        layout.addWidget(self.log_output)
 
-        right_layout.addWidget(log_group)
+        return group
 
-        main_layout.addWidget(right_panel, stretch=1)
-
-    def setup_menu(self):
+    def _setup_menu(self) -> None:
         """Set up the application menu bar."""
         menubar = self.menuBar()
 
         # File menu
         file_menu = menubar.addMenu("File")
 
-        # New Product action (at the top of File menu)
         new_product_action = QAction("📦 &New Product...", self)
         new_product_action.setShortcut("Ctrl+N")
         new_product_action.setStatusTip("Import photos and create a new product")
-        new_product_action.triggered.connect(self.open_import_wizard)
+        new_product_action.triggered.connect(self._open_import_wizard)
         file_menu.addAction(new_product_action)
 
         file_menu.addSeparator()
 
         open_action = QAction("Open Folder...", self)
         open_action.setShortcut("Ctrl+O")
-        open_action.triggered.connect(self.open_folder)
+        open_action.triggered.connect(self._open_folder)
         file_menu.addAction(open_action)
 
         file_menu.addSeparator()
 
         export_menu = file_menu.addMenu("Export")
         export_json = QAction("Export as JSON", self)
-        export_json.triggered.connect(lambda: self.export_product("json"))
+        export_json.triggered.connect(lambda: self._export_product("json"))
         export_menu.addAction(export_json)
-
-        export_docx = QAction("Export as DOCX", self)
-        export_docx.triggered.connect(lambda: self.export_product("docx"))
-        export_menu.addAction(export_docx)
 
         file_menu.addSeparator()
 
@@ -1329,87 +557,116 @@ class KollectItApp(QMainWindow):
         tools_menu = menubar.addMenu("Tools")
 
         batch_action = QAction("Batch Process Folder...", self)
-        batch_action.triggered.connect(self.batch_process)
+        batch_action.triggered.connect(self._batch_process)
         tools_menu.addAction(batch_action)
 
         tools_menu.addSeparator()
 
         settings_action = QAction("Settings...", self)
-        settings_action.triggered.connect(self.show_settings)
+        settings_action.triggered.connect(self._show_settings)
         tools_menu.addAction(settings_action)
 
         # Help menu
         help_menu = menubar.addMenu("Help")
 
         about_action = QAction("About", self)
-        about_action.triggered.connect(self.show_about)
+        about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
 
-    def setup_toolbar(self):
+    def _setup_toolbar(self) -> None:
         """Set up the main toolbar."""
         toolbar = QToolBar("Main Toolbar")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
-        # New Product button (at the start)
         new_product_action = QAction("📦 New Product", self)
         new_product_action.setStatusTip("Import photos and create a new product")
-        new_product_action.triggered.connect(self.open_import_wizard)
+        new_product_action.triggered.connect(self._open_import_wizard)
         toolbar.addAction(new_product_action)
 
         toolbar.addSeparator()
 
-        toolbar.addAction("📂 Open", self.open_folder)
-        toolbar.addAction("⚡ Process", self.optimize_images)
-        toolbar.addAction("☁️ Upload", self.upload_to_imagekit)
+        toolbar.addAction("📂 Open", self._open_folder)
+        toolbar.addAction("⚡ Process", self._optimize_images)
+        toolbar.addAction("☁️ Upload", self._upload_to_imagekit)
 
-    def setup_statusbar(self):
+    def _setup_statusbar(self) -> None:
         """Set up the status bar."""
         self.statusBar().showMessage("Ready - Drop a product folder to begin")
 
-    def log(self, message: str, level: str = "info"):
-        """Add a message to the activity log with timestamp and color coding."""
-        timestamp = datetime.now().strftime("%H:%M:%S")
+    # -------------------------------------------------------------------------
+    # Category Management
+    # -------------------------------------------------------------------------
 
-        # Color coding for different levels
+    def _populate_categories(self) -> None:
+        """Populate the category dropdown from config."""
+        self.category_combo.clear()
+        for cat_id, cat_info in self.config.get("categories", {}).items():
+            display_name = cat_info.get("display_name", cat_info.get("name", cat_id.title()))
+            self.category_combo.addItem(display_name, cat_id)
+
+        default_cat = self.config.get("defaults", {}).get("default_category", "collectibles")
+        index = self.category_combo.findData(default_cat)
+        if index >= 0:
+            self.category_combo.setCurrentIndex(index)
+
+    def _on_category_changed(self, _index: int) -> None:
+        """Handle category selection change."""
+        self._update_subcategories()
+        if self.current_folder:
+            self._generate_sku()
+
+    def _update_subcategories(self) -> None:
+        """Update subcategory dropdown based on selected category."""
+        self.subcategory_combo.clear()
+        cat_id = self.category_combo.currentData()
+        if cat_id:
+            subcategories = (
+                self.config.get("categories", {})
+                .get(cat_id, {})
+                .get("subcategories", [])
+            )
+            for subcat in subcategories:
+                self.subcategory_combo.addItem(subcat)
+
+    # -------------------------------------------------------------------------
+    # Logging
+    # -------------------------------------------------------------------------
+
+    def _log(self, message: str, level: str = "info") -> None:
+        """Add a message to the activity log."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
         colors = {
-            "info": "#60a5fa",      # Blue
-            "success": "#4ade80",   # Green
-            "warning": "#fbbf24",   # Yellow
-            "error": "#f87171",     # Red
+            "info": "#60a5fa",
+            "success": "#4ade80",
+            "warning": "#fbbf24",
+            "error": "#f87171",
         }
         color = colors.get(level, "#ffffff")
-
-        # Format with HTML for colored output
         formatted = f'<span style="color: #6b7280;">[{timestamp}]</span> <span style="color: {color};">{message}</span>'
-
         self.log_output.append(formatted)
-
-        # Auto-scroll to bottom
         scrollbar = self.log_output.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def on_folder_dropped(self, folder_path: str):
+    # -------------------------------------------------------------------------
+    # Folder & Image Handling
+    # -------------------------------------------------------------------------
+
+    def _on_folder_dropped(self, folder_path: str) -> None:
         """Handle when a folder is dropped or selected."""
         self.current_folder = folder_path
-        self.log(f"Loaded folder: {os.path.basename(folder_path)}", "success")
+        self._log(f"Loaded folder: {os.path.basename(folder_path)}", "success")
         self.statusBar().showMessage(f"Folder: {folder_path}")
 
-        # Load images
-        self.load_images_from_folder(folder_path)
+        self._load_images_from_folder(folder_path)
+        self._detect_category(folder_path)
+        self._generate_sku()
 
-        # Auto-detect category from folder name
-        self.detect_category(folder_path)
-
-        # Generate SKU
-        self.generate_sku()
-
-        # Enable buttons
         self.optimize_btn.setEnabled(True)
         self.crop_all_btn.setEnabled(True)
         self.remove_bg_btn.setEnabled(True)
 
-    def load_images_from_folder(self, folder_path: str):
+    def _load_images_from_folder(self, folder_path: str) -> None:
         """Load and display images from the selected folder."""
         # Clear existing thumbnails
         while self.image_grid_layout.count():
@@ -1432,9 +689,9 @@ class KollectItApp(QMainWindow):
             self.current_images.append(str(img_path))
 
             thumb = ImageThumbnail(str(img_path))
-            thumb.clicked.connect(self.on_thumbnail_clicked)
-            thumb.crop_requested.connect(self.crop_image)
-            thumb.remove_bg_requested.connect(self.remove_image_background)
+            thumb.clicked.connect(self._on_thumbnail_clicked)
+            thumb.crop_requested.connect(self._crop_image)
+            thumb.remove_bg_requested.connect(self._remove_image_background)
 
             self.image_grid_layout.addWidget(thumb, row, col)
 
@@ -1443,26 +700,37 @@ class KollectItApp(QMainWindow):
                 col = 0
                 row += 1
 
-        self.log(f"Found {len(images)} images", "info")
+        self._log(f"Found {len(images)} images", "info")
 
-    def on_thumbnail_clicked(self, image_path: str):
-        """Handle thumbnail click to update selection state."""
-        # Update selection state for all thumbnails
+    def _on_thumbnail_clicked(self, image_path: str) -> None:
+        """Handle thumbnail click."""
         for i in range(self.image_grid_layout.count()):
             item = self.image_grid_layout.itemAt(i)
             if item and item.widget():
                 widget = item.widget()
                 if isinstance(widget, ImageThumbnail):
-                    is_selected = (widget.image_path == image_path)
-                    widget.set_selected(is_selected)
+                    widget.set_selected(widget.image_path == image_path)
+        self._preview_image(image_path)
 
-        # Call original preview method
-        self.preview_image(image_path)
+    def _preview_image(self, image_path: str) -> None:
+        """Show full-size image preview."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Image Preview")
+        dialog.setMinimumSize(800, 600)
 
-    def detect_category(self, folder_path: str):
-        """Auto-detect category from folder name or contents."""
+        layout = QVBoxLayout(dialog)
+        label = QLabel()
+        pixmap = QPixmap(image_path)
+        scaled = pixmap.scaled(780, 560, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        label.setPixmap(scaled)
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+
+        dialog.exec_()
+
+    def _detect_category(self, folder_path: str) -> None:
+        """Auto-detect category from folder name."""
         folder_name = os.path.basename(folder_path).lower()
-
         category_keywords = {
             "militaria": ["military", "wwii", "ww2", "uniform", "medal", "weapon", "army", "navy", "usaf", "luftwaffe"],
             "books": ["book", "manuscript", "document", "map", "atlas", "signed", "first edition"],
@@ -1472,93 +740,54 @@ class KollectItApp(QMainWindow):
 
         for cat_id, keywords in category_keywords.items():
             if any(kw in folder_name for kw in keywords):
-                # Find and select the category
                 for i in range(self.category_combo.count()):
                     if self.category_combo.itemData(i) == cat_id:
                         self.category_combo.setCurrentIndex(i)
-                        self.log(f"Auto-detected category: {cat_id}", "info")
+                        self._log(f"Auto-detected category: {cat_id}", "info")
                         return
 
-    def on_category_changed(self, _index: int):
-        """Handle category selection change."""
-        self.update_subcategories()
-        if self.current_folder:
-            self.generate_sku()
+    # -------------------------------------------------------------------------
+    # SKU Generation
+    # -------------------------------------------------------------------------
 
-    def update_subcategories(self):
-        """Update subcategory dropdown based on selected category."""
-        self.subcategory_combo.clear()
-
-        cat_id = self.category_combo.currentData()
-        if cat_id:
-            subcategories = (
-                self.config.get("categories", {})
-                .get(cat_id, {})
-                .get("subcategories", [])
-            )
-            for subcat in subcategories:
-                self.subcategory_combo.addItem(subcat)
-
-    def generate_sku(self):
+    def _generate_sku(self) -> None:
         """Generate a new SKU for the current category."""
         cat_id = self.category_combo.currentData()
         if not cat_id:
-            self.log("No category selected - cannot generate SKU", "warning")
+            self._log("No category selected - cannot generate SKU", "warning")
             return
 
         try:
             prefix = self.config["categories"][cat_id]["prefix"]
             sku = self.sku_scanner.get_next_sku(prefix)
             self.sku_edit.setText(sku)
-            self.update_export_button_state()
-            self.log(f"Generated SKU: {sku}", "info")
+            self._update_export_button_state()
+            self._log(f"Generated SKU: {sku}", "info")
         except KeyError as e:
-            self.log(f"Category '{cat_id}' not found in config: {e}", "error")
+            self._log(f"Category '{cat_id}' not found in config: {e}", "error")
         except Exception as e:
-            self.log(f"SKU generation error: {e}", "error")
+            self._log(f"SKU generation error: {e}", "error")
 
-    def regenerate_sku(self):
-        """Regenerate SKU (get next available)."""
-        self.generate_sku()
+    # -------------------------------------------------------------------------
+    # Image Operations
+    # -------------------------------------------------------------------------
 
-    def preview_image(self, image_path: str):
-        """Show full-size image preview."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Image Preview")
-        dialog.setMinimumSize(800, 600)
-
-        layout = QVBoxLayout(dialog)
-
-        label = QLabel()
-        pixmap = QPixmap(image_path)
-        scaled = pixmap.scaled(
-            780, 560,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
-        label.setPixmap(scaled)
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
-
-        dialog.exec_()
-
-    def crop_image(self, image_path: str):
+    def _crop_image(self, image_path: str) -> None:
         """Open crop dialog for an image."""
         dialog = CropDialog(image_path, self)
         if dialog.exec_() == QDialog.Accepted:
-            _cropped_path = dialog.get_cropped_path()  # Path is used implicitly by reload
-            self.log(f"Cropped: {os.path.basename(image_path)}", "success")
-            self.load_images_from_folder(self.current_folder)
+            self._log(f"Cropped: {os.path.basename(image_path)}", "success")
+            self._load_images_from_folder(self.current_folder)
 
-    def crop_selected_image(self):
+    def _crop_selected_image(self) -> None:
         """Crop the first selected image."""
         if self.current_images:
-            self.crop_image(self.current_images[0])
+            self._crop_image(self.current_images[0])
 
-    def remove_image_background(self, image_path: str):
+    def _remove_image_background(self, image_path: str) -> None:
         """Remove background from a single image."""
         try:
-            self.log(f"Removing background: {os.path.basename(image_path)}", "info")
+            self._log(f"Removing background: {os.path.basename(image_path)}", "info")
             self.progress_bar.setValue(0)
             self.status_label.setText("Removing background...")
 
@@ -1576,16 +805,14 @@ class KollectItApp(QMainWindow):
 
             self.progress_bar.setValue(100)
             self.status_label.setText("Background removed!")
-            self.log(f"Background removed: {os.path.basename(output_path)}", "success")
-
-            # Reload images
-            self.load_images_from_folder(self.current_folder)
+            self._log(f"Background removed: {os.path.basename(output_path)}", "success")
+            self._load_images_from_folder(self.current_folder)
 
         except Exception as e:
-            self.log(f"Background removal error: {e}", "error")
+            self._log(f"Background removal error: {e}", "error")
             self.status_label.setText("Error removing background")
 
-    def remove_background(self):
+    def _remove_background(self) -> None:
         """Remove background from all images."""
         if not self.current_images:
             return
@@ -1597,28 +824,22 @@ class KollectItApp(QMainWindow):
             )
             return
 
-        # Check rembg installation
         status = check_rembg_installation()
-
         if not REMBG_AVAILABLE:
             reply = QMessageBox.question(
                 self, "rembg Not Installed",
-                f"{status['recommendation']}\n\n"
-                "Would you like to continue with fallback method?\n"
-                "(Results may be lower quality)",
+                f"{status['recommendation']}\n\nContinue with fallback method?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
             if reply == QMessageBox.No:
                 return
 
-        # Process all images with progress
-        self.log(f"Removing backgrounds from {len(self.current_images)} images...", "info")
+        self._log(f"Removing backgrounds from {len(self.current_images)} images...", "info")
         self.progress_bar.setValue(0)
         self.status_label.setText("Removing backgrounds...")
 
         remover = BackgroundRemover(self.config)
-
         strength = self.bg_strength_slider.value() / 100
         bg_color = self.config.get("image_processing", {}).get(
             "background_removal", {}
@@ -1640,28 +861,19 @@ class KollectItApp(QMainWindow):
 
             self.progress_bar.setValue(100)
             self.status_label.setText("Background removal complete!")
-
-            success_count = results["processed"]
-            failed_count = results["failed"]
-
-            self.log(f"Background removal: {success_count} succeeded, {failed_count} failed", "success")
-
-            if failed_count > 0:
-                self.log(f"Errors: {len(results['errors'])} images failed", "warning")
-
-            # Reload images to show processed versions
-            self.load_images_from_folder(self.current_folder)
+            self._log(f"Background removal: {results['processed']} succeeded, {results['failed']} failed", "success")
+            self._load_images_from_folder(self.current_folder)
 
         except Exception as e:
-            self.log(f"Background removal error: {e}", "error")
+            self._log(f"Background removal error: {e}", "error")
             self.status_label.setText("Error removing backgrounds")
 
-    def optimize_images(self):
+    def _optimize_images(self) -> None:
         """Process and optimize all images."""
         if not self.current_folder:
             return
 
-        self.log("Starting image optimization...", "info")
+        self._log("Starting image optimization...", "info")
         self.status_label.setText("Optimizing images...")
         self.progress_bar.setValue(0)
 
@@ -1672,25 +884,20 @@ class KollectItApp(QMainWindow):
             "output_format": "webp"
         }
 
-        self.processing_thread = ProcessingThread(
-            self.current_folder,
-            self.config,
-            options
-        )
-        self.processing_thread.progress.connect(self.on_processing_progress)
-        self.processing_thread.finished.connect(self.on_processing_finished)
-        self.processing_thread.error.connect(self.on_processing_error)
+        self.processing_thread = ProcessingThread(self.current_folder, self.config, options)
+        self.processing_thread.progress.connect(self._on_processing_progress)
+        self.processing_thread.finished.connect(self._on_processing_finished)
+        self.processing_thread.error.connect(self._on_processing_error)
         self.processing_thread.start()
 
-        # Disable buttons during processing
         self.optimize_btn.setEnabled(False)
 
-    def on_processing_progress(self, percent: int, message: str):
+    def _on_processing_progress(self, percent: int, message: str) -> None:
         """Handle processing progress updates."""
         self.progress_bar.setValue(percent)
         self.status_label.setText(message)
 
-    def on_processing_finished(self, results: dict):
+    def _on_processing_finished(self, results: Dict[str, Any]) -> None:
         """Handle processing completion."""
         self.optimize_btn.setEnabled(True)
         self.upload_btn.setEnabled(True)
@@ -1698,34 +905,35 @@ class KollectItApp(QMainWindow):
         success_count = len(results.get("images", []))
         error_count = len(results.get("errors", []))
 
-        self.log(f"Optimization complete: {success_count} images processed", "success")
-
+        self._log(f"Optimization complete: {success_count} images processed", "success")
         if error_count > 0:
-            self.log(f"Errors: {error_count} images failed", "warning")
+            self._log(f"Errors: {error_count} images failed", "warning")
 
-        # Reload to show processed images
         processed_folder = Path(self.current_folder) / "processed"
         if processed_folder.exists():
-            self.load_images_from_folder(str(processed_folder))
+            self._load_images_from_folder(str(processed_folder))
 
-    def on_processing_error(self, error: str):
+    def _on_processing_error(self, error: str) -> None:
         """Handle processing errors."""
         self.optimize_btn.setEnabled(True)
-        self.log(f"Processing error: {error}", "error")
+        self._log(f"Processing error: {error}", "error")
         self.status_label.setText("Error during processing")
 
-    def generate_description(self):
+    # -------------------------------------------------------------------------
+    # AI Generation
+    # -------------------------------------------------------------------------
+
+    def _generate_description(self) -> None:
         """Generate product description using AI."""
         if not self.current_images:
             QMessageBox.warning(self, "No Images", "Load a product folder first.")
             return
 
-        self.log("Generating AI description...", "info")
+        self._log("Generating AI description...", "info")
         self.status_label.setText("AI generating description...")
 
         try:
             engine = AIEngine(self.config)
-
             category = self.category_combo.currentData()
             if not category:
                 QMessageBox.warning(self, "No Category", "Please select a category first.")
@@ -1752,19 +960,16 @@ class KollectItApp(QMainWindow):
                 if result.get("suggested_title"):
                     self.title_edit.setText(result["suggested_title"])
 
-                # Handle valuation if present (from description generation)
                 valuation = result.get("valuation")
                 if valuation and isinstance(valuation, dict):
                     recommended = valuation.get("recommended") or 0
                     low = valuation.get("low") or 0
                     high = valuation.get("high") or 0
                     if recommended:
-                        # Display pricing research (don't auto-set price)
-                        self.log(
-                            f"💰 Price Research (from description): ${low:,.2f} - ${high:,.2f} (Rec: ${recommended:,.2f})",
+                        self._log(
+                            f"💰 Price Research: ${low:,.2f} - ${high:,.2f} (Rec: ${recommended:,.2f})",
                             "info"
                         )
-                        # Store for later use
                         self.last_valuation = {
                             "low": low,
                             "high": high,
@@ -1773,25 +978,22 @@ class KollectItApp(QMainWindow):
                             "notes": valuation.get("notes", "")
                         }
 
-                self.log("AI description generated", "success")
-
-                # Update export button state
-                self.update_export_button_state()
+                self._log("AI description generated", "success")
+                self._update_export_button_state()
             else:
-                self.log("AI generation returned no results", "warning")
+                self._log("AI generation returned no results", "warning")
 
         except Exception as e:
-            self.log(f"AI error: {e}", "error")
+            self._log(f"AI error: {e}", "error")
 
         self.status_label.setText("Ready")
 
-    def generate_valuation(self):
-        """Generate AI-powered price research and display guidance."""
-        self.log("Generating price research...", "info")
+    def _generate_valuation(self) -> None:
+        """Generate AI-powered price research."""
+        self._log("Generating price research...", "info")
 
         try:
             engine = AIEngine(self.config)
-
             category = self.category_combo.currentData()
             if not category:
                 QMessageBox.warning(self, "No Category", "Please select a category first.")
@@ -1815,8 +1017,7 @@ class KollectItApp(QMainWindow):
                 confidence = valuation.get("confidence", "Medium")
                 notes = valuation.get("notes", "")
 
-                # Display pricing research in log (don't auto-set)
-                self.log(
+                self._log(
                     f"💰 Price Research Results:\n"
                     f"   Suggested Range: ${low:,.2f} - ${high:,.2f}\n"
                     f"   Recommended: ${recommended:,.2f}\n"
@@ -1825,7 +1026,6 @@ class KollectItApp(QMainWindow):
                     "info"
                 )
 
-                # Store for later export (but don't auto-fill the price field)
                 self.last_valuation = {
                     "low": low,
                     "high": high,
@@ -1835,20 +1035,23 @@ class KollectItApp(QMainWindow):
                 }
 
         except Exception as e:
-            self.log(f"Price research error: {e}", "error")
+            self._log(f"Price research error: {e}", "error")
 
-    def upload_to_imagekit(self):
+    # -------------------------------------------------------------------------
+    # Upload & Export
+    # -------------------------------------------------------------------------
+
+    def _upload_to_imagekit(self) -> None:
         """Upload processed images to ImageKit."""
         if not self.current_images:
             return
 
-        self.log("Uploading to ImageKit...", "info")
+        self._log("Uploading to ImageKit...", "info")
         self.status_label.setText("Uploading to ImageKit...")
         self.progress_bar.setValue(0)
 
         try:
             uploader = ImageKitUploader(self.config)
-
             category = self.category_combo.currentData()
             if not category:
                 QMessageBox.warning(self, "No Category", "Please select a category first.")
@@ -1860,7 +1063,6 @@ class KollectItApp(QMainWindow):
                 return
 
             folder = f"products/{category}/{sku}"
-
             uploaded_urls = []
             total = len(self.current_images)
 
@@ -1870,35 +1072,32 @@ class KollectItApp(QMainWindow):
                     url = result.get("url")
                     if url:
                         uploaded_urls.append(url)
-                        self.log(f"Uploaded: {Path(img_path).name} → {url}", "info")
+                        self._log(f"Uploaded: {Path(img_path).name} → {url}", "info")
                     else:
-                        self.log(f"Upload returned no URL for {Path(img_path).name}", "warning")
+                        self._log(f"Upload returned no URL for {Path(img_path).name}", "warning")
                 else:
                     error_msg = result.get("error", "Unknown error") if result else "No response"
-                    self.log(f"Failed to upload {Path(img_path).name}: {error_msg}", "error")
+                    self._log(f"Failed to upload {Path(img_path).name}: {error_msg}", "error")
 
                 progress = int(((i + 1) / total) * 100)
                 self.progress_bar.setValue(progress)
                 self.status_label.setText(f"Uploading {i + 1}/{total}...")
-                QApplication.processEvents()  # Keep UI responsive
+                QApplication.processEvents()
 
-            self.log(f"Uploaded {len(uploaded_urls)} images to ImageKit", "success")
-
-            # Store URLs
+            self._log(f"Uploaded {len(uploaded_urls)} images to ImageKit", "success")
             self.uploaded_image_urls = uploaded_urls
 
-            # Enable export button if we have required data
             if uploaded_urls and self.title_edit.text() and self.description_edit.toPlainText():
                 self.export_btn.setEnabled(True)
 
         except Exception as e:
-            self.log(f"Upload error: {e}", "error")
+            self._log(f"Upload error: {e}", "error")
 
         self.status_label.setText("Ready")
 
-    def update_export_button_state(self):
-        """Update export button enabled state based on required fields."""
-        if hasattr(self, 'export_btn'):
+    def _update_export_button_state(self) -> None:
+        """Update export button enabled state."""
+        if self.export_btn:
             can_export = (
                 bool(self.sku_edit.text().strip()) and
                 bool(self.title_edit.text().strip()) and
@@ -1907,9 +1106,8 @@ class KollectItApp(QMainWindow):
             )
             self.export_btn.setEnabled(can_export)
 
-    def export_package(self):
+    def _export_package(self) -> None:
         """Export product package to files."""
-        # Validate required fields
         if not self.title_edit.text():
             QMessageBox.warning(self, "Missing Title", "Please enter a product title.")
             return
@@ -1932,16 +1130,14 @@ class KollectItApp(QMainWindow):
             QMessageBox.warning(self, "No SKU", "Please generate a SKU first.")
             return
 
-        self.log("Exporting product package...", "info")
+        self._log("Exporting product package...", "info")
         self.status_label.setText("Exporting package...")
 
         try:
-            # Ensure category folder exists
             category_prefix = self.config["categories"][category]["prefix"]
             self.sku_scanner.ensure_category_folder(category_prefix)
-            self.log(f"Verified category folder: {category_prefix}", "info")
+            self._log(f"Verified category folder: {category_prefix}", "info")
 
-            # Build product data dictionary
             product_data = {
                 "title": self.title_edit.text(),
                 "sku": sku,
@@ -1957,7 +1153,6 @@ class KollectItApp(QMainWindow):
                     {"url": url, "alt": f"{self.title_edit.text()} - Image {i+1}", "order": i}
                     for i, url in enumerate(self.uploaded_image_urls)
                 ],
-                # Canonical ImageKit folder path (used by website ingestion)
                 "imagekit_folder": f"products/{category_prefix}/{sku}",
                 "seoTitle": self.seo_title_edit.text() or self.title_edit.text(),
                 "seoDescription": self.seo_desc_edit.toPlainText() or self.description_edit.toPlainText()[:160],
@@ -1965,51 +1160,49 @@ class KollectItApp(QMainWindow):
                 "last_valuation": self.last_valuation
             }
 
-            # Export the package
             result = self.output_generator.export_package(product_data)
 
             if result.get("success"):
                 output_path = result.get("output_path")
-                self.log(f"✅ Package exported to: {output_path}", "success")
-
-                # Show success dialog with options
-                msg = QMessageBox(self)
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Export Successful")
-                msg.setText(f"Product package exported successfully!\n\nSKU: {sku}\nLocation: {output_path}")
-
-                open_folder_btn = msg.addButton("Open Folder", QMessageBox.ActionRole)
-                new_product_btn = msg.addButton("New Product", QMessageBox.ActionRole)
-                msg.addButton("OK", QMessageBox.AcceptRole)
-
-                msg.exec_()
-
-                if msg.clickedButton() == open_folder_btn:
-                    # Open folder in file explorer
-                    import subprocess
-                    import platform
-                    if platform.system() == "Windows":
-                        subprocess.Popen(f'explorer "{output_path}"')
-                    elif platform.system() == "Darwin":  # macOS
-                        subprocess.Popen(["open", str(output_path)])
-                    else:  # Linux
-                        subprocess.Popen(["xdg-open", str(output_path)])
-
-                elif msg.clickedButton() == new_product_btn:
-                    # Reset form for new product
-                    self.reset_form()
+                self._log(f"✅ Package exported to: {output_path}", "success")
+                self._show_export_success_dialog(sku, output_path)
             else:
                 error = result.get("error", "Unknown error")
-                self.log(f"Export failed: {error}", "error")
+                self._log(f"Export failed: {error}", "error")
                 QMessageBox.warning(self, "Export Failed", f"Error: {error}")
 
         except Exception as e:
-            self.log(f"Export error: {e}", "error")
+            self._log(f"Export error: {e}", "error")
             QMessageBox.critical(self, "Error", f"Failed to export: {e}")
 
         self.status_label.setText("Ready")
 
-    def reset_form(self):
+    def _show_export_success_dialog(self, sku: str, output_path: str) -> None:
+        """Show export success dialog with options."""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Export Successful")
+        msg.setText(f"Product package exported successfully!\n\nSKU: {sku}\nLocation: {output_path}")
+
+        open_folder_btn = msg.addButton("Open Folder", QMessageBox.ActionRole)
+        new_product_btn = msg.addButton("New Product", QMessageBox.ActionRole)
+        msg.addButton("OK", QMessageBox.AcceptRole)
+
+        msg.exec_()
+
+        if msg.clickedButton() == open_folder_btn:
+            import subprocess
+            import platform
+            if platform.system() == "Windows":
+                subprocess.Popen(f'explorer "{output_path}"')
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", str(output_path)])
+            else:
+                subprocess.Popen(["xdg-open", str(output_path)])
+        elif msg.clickedButton() == new_product_btn:
+            self._reset_form()
+
+    def _reset_form(self) -> None:
         """Reset the form for a new product."""
         self.title_edit.clear()
         self.sku_edit.clear()
@@ -2026,25 +1219,19 @@ class KollectItApp(QMainWindow):
         self.uploaded_image_urls = []
         self.last_valuation = None
 
-        # Clear image grid
         while self.image_grid_layout.count():
             item = self.image_grid_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        # Disable buttons
         self.optimize_btn.setEnabled(False)
         self.upload_btn.setEnabled(False)
         self.export_btn.setEnabled(False)
 
         self.progress_bar.setValue(0)
-        self.log("Form reset - ready for next product", "info")
+        self._log("Form reset - ready for next product", "info")
 
-    def open_folder(self):
-        """Open folder selection dialog."""
-        self.drop_zone.browse_folder()
-
-    def export_product(self, format_type: str):
+    def _export_product(self, format_type: str) -> None:
         """Export product data to file."""
         if format_type == "json":
             data = {
@@ -2063,26 +1250,31 @@ class KollectItApp(QMainWindow):
             if filename:
                 with open(filename, 'w') as f:
                     json.dump(data, f, indent=2)
-                self.log(f"Exported to {filename}", "success")
+                self._log(f"Exported to {filename}", "success")
 
-    def batch_process(self):
+    # -------------------------------------------------------------------------
+    # Dialogs
+    # -------------------------------------------------------------------------
+
+    def _open_folder(self) -> None:
+        """Open folder selection dialog."""
+        self.drop_zone.browse_folder()
+
+    def _batch_process(self) -> None:
         """Open batch processing dialog."""
         QMessageBox.information(
             self, "Batch Processing",
             "Batch processing will be available in the next update."
         )
 
-    def show_settings(self):
+    def _show_settings(self) -> None:
         """Show settings dialog."""
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTabWidget, QWidget, QFormLayout, QTextEdit, QCheckBox, QSpinBox, QDoubleSpinBox
-
         dialog = QDialog(self)
         dialog.setWindowTitle("Settings")
         dialog.setMinimumSize(600, 500)
         dialog.setStyleSheet(DarkPalette.get_stylesheet())
 
         layout = QVBoxLayout(dialog)
-
         tabs = QTabWidget()
 
         # API Settings Tab
@@ -2130,12 +1322,12 @@ class KollectItApp(QMainWindow):
         ai_layout = QFormLayout(ai_tab)
         ai_layout.setSpacing(12)
 
-        # API key is read from ANTHROPIC_API_KEY environment variable only
-        # Display status instead of editable field
-        api_key_status = "✓ Configured" if os.getenv("ANTHROPIC_API_KEY") else "✗ Not set (set ANTHROPIC_API_KEY in .env)"
-        api_key_label = QLabel(api_key_status)
-        api_key_label.setStyleSheet("color: #48bb78;" if os.getenv("ANTHROPIC_API_KEY") else "color: #f56565;")
-        ai_layout.addRow("Anthropic API Key:", api_key_label)
+        self.anthropic_key_edit = QLineEdit()
+        current_key = os.getenv("ANTHROPIC_API_KEY", "")
+        self.anthropic_key_edit.setText(current_key)
+        self.anthropic_key_edit.setEchoMode(QLineEdit.Password)
+        self.anthropic_key_edit.setPlaceholderText("sk-ant-...")
+        ai_layout.addRow("Anthropic API Key:", self.anthropic_key_edit)
 
         self.ai_model_edit = QLineEdit()
         self.ai_model_edit.setText(self.config.get("ai", {}).get("model", "claude-sonnet-4-20250514"))
@@ -2175,16 +1367,14 @@ class KollectItApp(QMainWindow):
         btn_layout.addWidget(cancel_btn)
 
         save_btn = QPushButton("Save")
-        save_btn.clicked.connect(lambda: self.save_settings_from_dialog(dialog))
+        save_btn.clicked.connect(lambda: self._save_settings_from_dialog(dialog))
         btn_layout.addWidget(save_btn)
 
         layout.addLayout(btn_layout)
-
         dialog.exec_()
 
-    def save_settings_from_dialog(self, dialog):
+    def _save_settings_from_dialog(self, dialog: QDialog) -> None:
         """Save settings from the settings dialog."""
-        # Update config
         if "api" not in self.config:
             self.config["api"] = {}
         if "imagekit" not in self.config:
@@ -2202,20 +1392,29 @@ class KollectItApp(QMainWindow):
         self.config["imagekit"]["private_key"] = self.ik_private_edit.text()
         self.config["imagekit"]["url_endpoint"] = self.ik_url_edit.text()
 
-        # API key is read from ANTHROPIC_API_KEY environment variable only, not saved to config
+        # Save Anthropic Key to .env
+        new_key = self.anthropic_key_edit.text().strip()
+        if new_key != os.getenv("ANTHROPIC_API_KEY", ""):
+            try:
+                from modules.env_loader import update_env_key
+                if update_env_key("ANTHROPIC_API_KEY", new_key):
+                    os.environ["ANTHROPIC_API_KEY"] = new_key
+                    # Update config in memory if needed, though AIEngine reads from env
+            except ImportError:
+                print("Could not update .env file (module not found)")
+
         self.config["ai"]["model"] = self.ai_model_edit.text()
 
         self.config["image_processing"]["max_dimension"] = self.max_dim_spin.value()
         self.config["image_processing"]["webp_quality"] = self.quality_spin.value()
         self.config["image_processing"]["strip_exif"] = self.strip_exif_check.isChecked()
 
-        # Save to file
-        self.save_config()
+        self._save_config()
 
         QMessageBox.information(dialog, "Settings Saved", "Settings have been saved successfully.")
         dialog.accept()
 
-    def show_about(self):
+    def _show_about(self) -> None:
         """Show about dialog."""
         QMessageBox.about(
             self, "About Kollect-It Product Manager",
@@ -2225,32 +1424,26 @@ class KollectItApp(QMainWindow):
             "© 2025 Kollect-It"
         )
 
-    def open_import_wizard(self):
+    def _open_import_wizard(self) -> None:
         """Open the import wizard dialog."""
         wizard = ImportWizard(self.config, self)
-        wizard.import_complete.connect(self.on_import_complete)
+        wizard.import_complete.connect(self._on_import_complete)
         wizard.exec_()
 
-    def on_import_complete(self, folder_path: str):
+    def _on_import_complete(self, folder_path: str) -> None:
         """Handle completed import - load the new product."""
-        self.log(f"Product imported to: {folder_path}", "success")
+        self._log(f"Product imported to: {folder_path}", "success")
 
-        # Load the imported folder into the editor
         if folder_path:
-            # Read the product_info.json to get title and SKU
             info_file = Path(folder_path) / "product_info.json"
             if info_file.exists():
                 try:
                     with open(info_file) as f:
                         info = json.load(f)
 
-                    # Set the SKU
                     self.sku_edit.setText(info.get("sku", ""))
-
-                    # Set the title
                     self.title_edit.setText(info.get("title", ""))
 
-                    # Set the category
                     category = info.get("category", "")
                     if category:
                         index = self.category_combo.findData(category)
@@ -2258,18 +1451,19 @@ class KollectItApp(QMainWindow):
                             self.category_combo.setCurrentIndex(index)
 
                 except Exception as e:
-                    self.log(f"Error reading product info: {e}", "warning")
+                    self._log(f"Error reading product info: {e}", "warning")
 
-            # Load the folder using existing method
-            self.on_folder_dropped(folder_path)
+            self._on_folder_dropped(folder_path)
+            self._log("Product loaded - ready for processing", "info")
 
-            self.log("Product loaded - ready for processing", "info")
+    # -------------------------------------------------------------------------
+    # Cleanup
+    # -------------------------------------------------------------------------
 
-    def closeEvent(self, event):
+    def closeEvent(self, event) -> None:
         """Handle application close event - cleanup temporary directories."""
-        # Clean up temporary directories
         import shutil
-        for temp_dir in getattr(self, '_temp_dirs', []):
+        for temp_dir in self._temp_dirs:
             try:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
