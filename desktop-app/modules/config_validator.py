@@ -97,11 +97,8 @@ class ConfigValidator:
             if not ai.get(field):
                 self.errors.append(f"AI: Missing required field '{field}'")
         
-        # Check model name
-        model = ai.get("model", "")
-        valid_models = ["claude-sonnet-4-20250514", "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]
-        if model and model not in valid_models:
-            self.warnings.append(f"AI: Unknown model '{model}'. Using default model.")
+        # Model validation removed - models update frequently and strict validation is too brittle
+        # The AI engine will handle invalid models gracefully
     
     def _validate_categories(self):
         """Validate categories configuration."""
