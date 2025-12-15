@@ -14,6 +14,10 @@
     "url_endpoint": "https://ik.imagekit.io/kollectit",
     "upload_folder": "products"
   },
+  "stripe": {
+    "publishable_key": "YOUR_STRIPE_PUBLISHABLE_KEY",
+    "secret_key": "YOUR_STRIPE_SECRET_KEY"
+  },
   "categories": {
     "militaria": {
       "name": "Militaria",

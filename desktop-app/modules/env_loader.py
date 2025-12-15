@@ -43,6 +43,8 @@ def load_env_file(env_path: Path = None) -> Dict[str, str]:
             "IMAGEKIT_PUBLIC_KEY": os.getenv("IMAGEKIT_PUBLIC_KEY", ""),
             "IMAGEKIT_PRIVATE_KEY": os.getenv("IMAGEKIT_PRIVATE_KEY", ""),
             "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
+            "STRIPE_PUBLISHABLE_KEY": os.getenv("STRIPE_PUBLISHABLE_KEY", ""),
+            "STRIPE_SECRET_KEY": os.getenv("STRIPE_SECRET_KEY", ""),
             "USE_PRODUCTION": os.getenv("USE_PRODUCTION", ""),
             "AI_TEMPERATURE": os.getenv("AI_TEMPERATURE", ""),
         }
@@ -101,6 +103,16 @@ def merge_env_into_config(config: Dict[str, Any], env_vars: Dict[str, str]) -> D
     
     if env_vars.get("IMAGEKIT_PRIVATE_KEY"):
         merged["imagekit"]["private_key"] = env_vars["IMAGEKIT_PRIVATE_KEY"]
+    
+    # Merge Stripe keys
+    if "stripe" not in merged:
+        merged["stripe"] = {}
+        
+    if env_vars.get("STRIPE_PUBLISHABLE_KEY"):
+        merged["stripe"]["publishable_key"] = env_vars["STRIPE_PUBLISHABLE_KEY"]
+        
+    if env_vars.get("STRIPE_SECRET_KEY"):
+        merged["stripe"]["secret_key"] = env_vars["STRIPE_SECRET_KEY"]
     
     # Merge AI keys
     if "ai" not in merged:

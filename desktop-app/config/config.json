@@ -1,0 +1,139 @@
+{
+  "app": {
+    "name": "Kollect-It Product Manager",
+    "version": "1.0.0",
+    "theme": "dark"
+  },
+  "api": {
+    "SERVICE_API_KEY": "",
+    "production_url": "https://kollect-it.com/api/admin/products/service-create",
+    "local_url": "http://localhost:3000/api/admin/products/service-create",
+    "use_production": true,
+    "timeout_seconds": 30,
+    "retry_attempts": 3
+  },
+  "imagekit": {
+    "public_key": "",
+    "private_key": "",
+    "url_endpoint": "https://ik.imagekit.io/kollectit",
+    "upload_folder": "products"
+  },
+  "stripe": {
+    "publishable_key": "",
+    "secret_key": ""
+  },
+  "categories": {
+    "militaria": {
+      "prefix": "MILI",
+      "display_name": "Military & Militaria",
+      "subcategories": [
+        "Uniforms & Clothing",
+        "Medals & Decorations",
+        "Edged Weapons",
+        "Firearms & Accessories",
+        "Aviation",
+        "Naval",
+        "Documents & Ephemera",
+        "Equipment & Gear",
+        "Headgear",
+        "Patches & Insignia"
+      ]
+    },
+    "collectibles": {
+      "prefix": "COLL",
+      "display_name": "Antiques & Collectibles",
+      "subcategories": [
+        "Advertising",
+        "Americana",
+        "Ceramics & Pottery",
+        "Coins & Currency",
+        "Folk Art",
+        "Glassware",
+        "Jewelry",
+        "Political Memorabilia",
+        "Sports Memorabilia",
+        "Toys & Games",
+        "Vintage Electronics",
+        "Other"
+      ]
+    },
+    "books": {
+      "prefix": "BOOK",
+      "display_name": "Rare Books & Manuscripts",
+      "subcategories": [
+        "First Editions",
+        "Signed Books",
+        "Manuscripts",
+        "Maps & Atlases",
+        "Historical Documents",
+        "Photographs",
+        "Prints & Engravings",
+        "Ephemera",
+        "Autographs"
+      ]
+    },
+    "fineart": {
+      "prefix": "ART",
+      "display_name": "Fine Art",
+      "subcategories": [
+        "Paintings",
+        "Drawings",
+        "Prints",
+        "Sculptures",
+        "Photography",
+        "Mixed Media",
+        "Decorative Arts"
+      ]
+    }
+  },
+  "image_processing": {
+    "max_dimension": 2400,
+    "webp_quality": 88,
+    "thumbnail_size": 400,
+    "strip_exif": true,
+    "color_profile": "sRGB",
+    "background_removal": {
+      "enabled": true,
+      "default_strength": 0.8,
+      "background_color": "#FFFFFF",
+      "preserve_shadows": true
+    }
+  },
+  "paths": {
+    "products_root": "G:\\My Drive\\Kollect-It\\Products",
+    "watch_folder": "G:\\My Drive\\Kollect-It\\Products",
+    "processed": "./processed",
+    "completed": "G:\\My Drive\\Kollect-It\\Completed",
+    "failed": "G:\\My Drive\\Kollect-It\\Failed",
+    "temp": "./temp",
+    "logs": "./logs"
+},
+  "automation": {
+    "enabled": false,
+    "watch_interval_seconds": 60,
+    "auto_publish": false,
+    "archive_completed": true,
+    "notification_email": ""
+  },
+  "ai": {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20240620",
+    "api_key": "",
+    "max_tokens": 4000,
+    "temperature": 0.7
+  },
+  "defaults": {
+    "condition_grades": [
+      "Mint",
+      "Near Mint",
+      "Excellent",
+      "Very Good",
+      "Good",
+      "Fair",
+      "Poor",
+      "As-Is"
+    ],
+    "status": "draft",
+    "currency": "USD"
+  }
+}

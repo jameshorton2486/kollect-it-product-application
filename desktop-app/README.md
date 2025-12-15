@@ -71,7 +71,7 @@ pip install rembg[gpu]
   pip uninstall onnxruntime onnxruntime-gpu
   pip install rembg[gpu]  # or rembg for CPU
   ```
-- Python version: rembg works best with Python 3.7-3.11. If you're on 3.12+, consider using a virtual environment with Python 3.10.
+- Python version: rembg works best with Python 3.8-3.11. If you're on 3.12+, consider using a virtual environment with Python 3.11.
 
 ### Step 2: Configure API Keys
 
