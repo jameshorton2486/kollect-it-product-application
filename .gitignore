@@ -1,70 +1,74 @@
-# Kollect-It Product Application - Root Git Ignore
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-*.env
-
-# Configuration with API keys (IMPORTANT!)
-desktop-app/config/config.json
-
-# Keep the example config
-!desktop-app/config/config.example.json
-
-# SKU state (can regenerate)
-desktop-app/config/sku_state.json
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
+# ==========================
+# Dependencies & Libraries
+# ==========================
+node_modules/
+# Ignore npm lock file (using Bun)
+package-lock.json
 
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+.venv/
+*.pyc
 
-# IDE
+# ==========================
+# Framework Builds
+# ==========================
+# Next.js
+.next/
+.vercel
+
+# TypeScript
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# ==========================
+# Environment & Secrets
+# ==========================
+# Local env files
+.env
+.env.local
+.env.production
+.env.production.local
+.env.production.check
+.env.*.local
+
+# Credentials
+credentials/
+token.json
+
+# ==========================
+# IDE & Editor Configuration
+# ==========================
 .idea/
 .vscode/
-*.swp
-*.swo
-*~
+*.code-workspace
 
-# Logs
-desktop-app/logs/
-*.log
-.cursor/debug.log
-
-# Processed files (can regenerate)
-desktop-app/processed/
-desktop-app/temp/
-*.webp
-
-# OS files
-.DS_Store
+# ==========================
+# OS & System Files
+# ==========================
 Thumbs.db
-Desktop.ini
+.DS_Store
 
-# Sensitive
-*.pem
-*.key
+# ==========================
+# Logs & Debugging
+# ==========================
+logs/
+*.log
+
+# ==========================
+# Backups, Temp & Archives
+# ==========================
+*.bak
+*.backup
+*.old
+*.tmp
+*.disabled
+*~
+*.zip
+
+# ==========================
+# Local Work Artifacts
+# ==========================
+work_files/
+desktop-app/processed/**/*.webp
+desktop-app/temp/**/*.webp

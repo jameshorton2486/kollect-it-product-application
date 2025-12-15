@@ -24,6 +24,8 @@ VERSION = "1.0.0"
 IMAGE_GRID_COLUMNS = 4
 THUMBNAIL_SIZE = 150
 MAX_IMAGES = 20
+MAX_AI_IMAGES_DESCRIPTION = 5
+MAX_AI_IMAGES_VALUATION = 3
 
 # Load environment variables from .env file (if available)
 try:
@@ -60,10 +62,11 @@ from modules.imagekit_uploader import ImageKitUploader  # type: ignore
 from modules.sku_generator import SKUGenerator  # type: ignore
 from modules.sku_scanner import SKUScanner  # type: ignore
 from modules.ai_engine import AIEngine  # type: ignore
-from modules.background_remover import BackgroundRemover  # type: ignore
+from modules.background_remover import BackgroundRemover, check_rembg_installation, REMBG_AVAILABLE  # type: ignore
 from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
 from modules.output_generator import OutputGenerator  # type: ignore
+from modules.config_validator import ConfigValidator  # type: ignore
 
 
 class DarkPalette:
@@ -947,6 +950,15 @@ class KollectItApp(QMainWindow):
                 # Fallback to standard JSON loading if env_loader not available
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
+
+            # Validate configuration
+            validator = ConfigValidator()
+            validation_result = validator.validate(config)
+            if not validation_result.get("valid", True):
+                QMessageBox.warning(
+                    None, "Configuration Warning",
+                    f"Configuration issues found: {validation_result.get('errors', [])}"
+                )
         except json.JSONDecodeError as e:
             QMessageBox.critical(
                 None, "Configuration Error",
@@ -1107,7 +1119,7 @@ class KollectItApp(QMainWindow):
 
         # Add categories from config with proper data
         for cat_id, cat_info in self.config.get("categories", {}).items():
-            display_name = cat_info.get("name", cat_id.title())
+            display_name = cat_info.get("display_name", cat_info.get("name", cat_id.title()))
             # addItem(display_text, user_data) - the second param is returned by currentData()
             self.category_combo.addItem(display_name, cat_id)
 
@@ -2088,7 +2100,7 @@ class KollectItApp(QMainWindow):
         api_layout.addRow("Production URL:", self.prod_url_edit)
 
         self.use_prod_check = QCheckBox("Use Production API")
-        self.use_prod_check.setChecked(not self.config.get("api", {}).get("use_local", False))
+        self.use_prod_check.setChecked(self.config.get("api", {}).get("use_production", True))
         api_layout.addRow(self.use_prod_check)
 
         tabs.addTab(api_tab, "API")
@@ -2184,7 +2196,7 @@ class KollectItApp(QMainWindow):
 
         self.config["api"]["SERVICE_API_KEY"] = self.api_key_edit.text()
         self.config["api"]["production_url"] = self.prod_url_edit.text()
-        self.config["api"]["use_local"] = not self.use_prod_check.isChecked()
+        self.config["api"]["use_production"] = self.use_prod_check.isChecked()
 
         self.config["imagekit"]["public_key"] = self.ik_public_edit.text()
         self.config["imagekit"]["private_key"] = self.ik_private_edit.text()

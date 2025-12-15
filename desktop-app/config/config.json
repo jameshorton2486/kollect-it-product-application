@@ -18,6 +18,7 @@
     "url_endpoint": "https://ik.imagekit.io/kollectit",
     "upload_folder": "products"
   },
+  "_stripe_note": "Reserved for future payment integration",
   "stripe": {
     "publishable_key": "",
     "secret_key": ""
@@ -100,11 +101,12 @@
     }
   },
   "paths": {
-    "products_root": "G:\\My Drive\\Kollect-It\\Products",
-    "watch_folder": "G:\\My Drive\\Kollect-It\\Products",
+    "products_root": "G:/My Drive/Kollect-It/Products",
+    "watch_folder": "G:/My Drive/Kollect-It/Products",
     "processed": "./processed",
-    "completed": "G:\\My Drive\\Kollect-It\\Completed",
-    "failed": "G:\\My Drive\\Kollect-It\\Failed",
+    "completed": "G:/My Drive/Kollect-It/Completed",
+    "failed": "G:/My Drive/Kollect-It/Failed",
+    "archive_folder": "G:/My Drive/Kollect-It/Archived",
     "temp": "./temp",
     "logs": "./logs"
 },
@@ -117,7 +119,7 @@
   },
   "ai": {
     "provider": "anthropic",
-    "model": "claude-3-5-sonnet-20240620",
+    "model": "claude-sonnet-4-20250514",
     "api_key": "",
     "max_tokens": 4000,
     "temperature": 0.7
