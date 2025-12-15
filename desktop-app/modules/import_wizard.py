@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QGridLayout, QScrollArea, QWidget, QCheckBox,
     QFrame, QMessageBox, QProgressDialog, QApplication,
-    QButtonGroup, QSizePolicy, QGroupBox
+    QButtonGroup, QSizePolicy, QGroupBox, QFileDialog
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPixmap, QImage, QFont, QIcon

@@ -7,7 +7,7 @@ Uses rembg (U2-Net based) for accurate background removal.
 
 import os
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 from PIL import Image, ImageFilter, ImageOps
 import numpy as np
 
@@ -229,7 +229,7 @@ class BackgroundRemover:
         self,
         folder_path: str,
         output_folder: Optional[str] = None,
-        progress_callback: Optional[callable] = None,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
         **kwargs
     ) -> dict:
         """

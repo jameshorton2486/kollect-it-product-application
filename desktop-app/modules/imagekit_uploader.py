@@ -8,7 +8,7 @@ import os
 import base64
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Callable
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -136,7 +136,7 @@ class ImageKitUploader:
         self,
         file_paths: List[str],
         folder: Optional[str] = None,
-        progress_callback: Optional[callable] = None
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> Dict[str, Any]:
         """
         Upload multiple files to ImageKit.

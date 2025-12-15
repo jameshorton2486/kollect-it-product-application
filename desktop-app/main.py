@@ -656,19 +656,20 @@ class DropZone(QFrame):
                     "Please drop a folder containing product images."
                 )
 
+    def _get_default_browse_path(self) -> str:
+        """Get default browse path from config or fall back to home."""
+        if hasattr(self, 'config') and self.config:
+            config_path = self.config.get("paths", {}).get("default_browse", "")
+            if config_path and Path(config_path).exists():
+                return config_path
+            camera_path = self.config.get("paths", {}).get("camera_import", "")
+            if camera_path and Path(camera_path).exists():
+                return camera_path
+        return str(Path.home())
+
     def browse_folder(self):
         # Get default path from config, fallback to user's home directory
-        default_path = ""
-
-        # Check for specific requested path first
-        requested_path = Path(r"E:\DCIM\100CANON\New folder")
-        if requested_path.exists():
-            default_path = str(requested_path)
-        elif hasattr(self, 'config'):
-            default_path = self.config.get("paths", {}).get("default_browse", "")
-
-        if not default_path:
-            default_path = str(Path.home())
+        default_path = self._get_default_browse_path()
 
         # Use a custom file dialog to allow seeing files while selecting a folder
         dialog = QFileDialog(self, "Select Product Folder", default_path)
@@ -712,7 +713,9 @@ class DropZone(QFrame):
 
             # Create a temporary directory to hold the selected files
             temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
-            self._temp_dirs.append(temp_dir)
+            # Track temp dir in the main window application
+            if hasattr(self.window(), '_temp_dirs'):
+                self.window()._temp_dirs.append(temp_dir)
 
             # Copy selected files to temp directory
             for file_path in files:
@@ -736,7 +739,7 @@ class ImageThumbnail(QLabel):
         self.image_path = image_path
         self.is_selected = False  # Track selection state
         # Increased size for "large format" display
-        self.setFixedSize(250, 250)
+        self.setFixedSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
         self.setCursor(Qt.PointingHandCursor)  # type: ignore
         self.load_image()
 
@@ -780,7 +783,6 @@ class ImageThumbnail(QLabel):
             self.show_context_menu(event.pos())
 
     def show_context_menu(self, pos):
-        from PyQt5.QtWidgets import QMenu
         menu = QMenu(self)
         crop_action = menu.addAction("✂️ Crop Image")
         bg_action = menu.addAction("🎨 Remove Background")
@@ -853,7 +855,7 @@ class KollectItApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
-        
+
         # Initialize SKU Scanner and Output Generator
         products_root = self.config.get("paths", {}).get("products_root", r"G:\My Drive\Kollect-It\Products")
         self.sku_scanner = SKUScanner(products_root, self.config.get("categories", {}))
@@ -902,7 +904,7 @@ class KollectItApp(QMainWindow):
         self.ik_public_edit = None
         self.ik_private_edit = None
         self.ik_url_edit = None
-        self.ai_key_edit = None
+        # API key is read from environment variable only
         self.ai_model_edit = None
         self.max_dim_spin = None
         self.quality_spin = None
@@ -1408,7 +1410,7 @@ class KollectItApp(QMainWindow):
         ])
 
         row, col = 0, 0
-        max_cols = 4
+        max_cols = IMAGE_GRID_COLUMNS
 
         for img_path in images:
             self.current_images.append(str(img_path))
@@ -1580,7 +1582,6 @@ class KollectItApp(QMainWindow):
             return
 
         # Check rembg installation
-        from modules.background_remover import REMBG_AVAILABLE, check_rembg_installation  # type: ignore
         status = check_rembg_installation()
 
         if not REMBG_AVAILABLE:
@@ -1600,7 +1601,6 @@ class KollectItApp(QMainWindow):
         self.progress_bar.setValue(0)
         self.status_label.setText("Removing backgrounds...")
 
-        from modules.background_remover import BackgroundRemover  # type: ignore
         remover = BackgroundRemover(self.config)
 
         strength = self.bg_strength_slider.value() / 100
@@ -1722,7 +1722,7 @@ class KollectItApp(QMainWindow):
                 "condition": self.condition_combo.currentText(),
                 "era": self.era_edit.text(),
                 "origin": self.origin_edit.text(),
-                "images": self.current_images[:5]  # Send up to 5 images
+                "images": self.current_images[:MAX_AI_IMAGES_DESCRIPTION]
             }
 
             result = engine.generate_description(product_data)
@@ -1758,7 +1758,7 @@ class KollectItApp(QMainWindow):
                         }
 
                 self.log("AI description generated", "success")
-                
+
                 # Update export button state
                 self.update_export_button_state()
             else:
@@ -1787,7 +1787,7 @@ class KollectItApp(QMainWindow):
                 "condition": self.condition_combo.currentText(),
                 "era": self.era_edit.text(),
                 "description": self.description_edit.toPlainText(),
-                "images": self.current_images[:3]
+                "images": self.current_images[:MAX_AI_IMAGES_VALUATION]
             }
 
             valuation = engine.generate_valuation(product_data)
@@ -1870,7 +1870,7 @@ class KollectItApp(QMainWindow):
 
             # Store URLs
             self.uploaded_image_urls = uploaded_urls
-            
+
             # Enable export button if we have required data
             if uploaded_urls and self.title_edit.text() and self.description_edit.toPlainText():
                 self.export_btn.setEnabled(True)
@@ -1886,6 +1886,7 @@ class KollectItApp(QMainWindow):
             can_export = (
                 bool(self.sku_edit.text().strip()) and
                 bool(self.title_edit.text().strip()) and
+                bool(self.description_edit.toPlainText().strip()) and
                 len(self.uploaded_image_urls) > 0
             )
             self.export_btn.setEnabled(can_export)
@@ -1923,7 +1924,7 @@ class KollectItApp(QMainWindow):
             category_prefix = self.config["categories"][category]["prefix"]
             self.sku_scanner.ensure_category_folder(category_prefix)
             self.log(f"Verified category folder: {category_prefix}", "info")
-            
+
             # Build product data dictionary
             product_data = {
                 "title": self.title_edit.text(),
@@ -1960,13 +1961,13 @@ class KollectItApp(QMainWindow):
                 msg.setIcon(QMessageBox.Information)
                 msg.setWindowTitle("Export Successful")
                 msg.setText(f"Product package exported successfully!\n\nSKU: {sku}\nLocation: {output_path}")
-                
+
                 open_folder_btn = msg.addButton("Open Folder", QMessageBox.ActionRole)
                 new_product_btn = msg.addButton("New Product", QMessageBox.ActionRole)
                 msg.addButton("OK", QMessageBox.AcceptRole)
-                
+
                 msg.exec_()
-                
+
                 if msg.clickedButton() == open_folder_btn:
                     # Open folder in file explorer
                     import subprocess
@@ -1977,7 +1978,7 @@ class KollectItApp(QMainWindow):
                         subprocess.Popen(["open", str(output_path)])
                     else:  # Linux
                         subprocess.Popen(["xdg-open", str(output_path)])
-                
+
                 elif msg.clickedButton() == new_product_btn:
                     # Reset form for new product
                     self.reset_form()
@@ -2113,10 +2114,12 @@ class KollectItApp(QMainWindow):
         ai_layout = QFormLayout(ai_tab)
         ai_layout.setSpacing(12)
 
-        self.ai_key_edit = QLineEdit()
-        self.ai_key_edit.setText(self.config.get("ai", {}).get("api_key", ""))
-        self.ai_key_edit.setEchoMode(QLineEdit.Password)
-        ai_layout.addRow("Anthropic API Key:", self.ai_key_edit)
+        # API key is read from ANTHROPIC_API_KEY environment variable only
+        # Display status instead of editable field
+        api_key_status = "✓ Configured" if os.getenv("ANTHROPIC_API_KEY") else "✗ Not set (set ANTHROPIC_API_KEY in .env)"
+        api_key_label = QLabel(api_key_status)
+        api_key_label.setStyleSheet("color: #48bb78;" if os.getenv("ANTHROPIC_API_KEY") else "color: #f56565;")
+        ai_layout.addRow("Anthropic API Key:", api_key_label)
 
         self.ai_model_edit = QLineEdit()
         self.ai_model_edit.setText(self.config.get("ai", {}).get("model", "claude-sonnet-4-20250514"))
@@ -2183,7 +2186,7 @@ class KollectItApp(QMainWindow):
         self.config["imagekit"]["private_key"] = self.ik_private_edit.text()
         self.config["imagekit"]["url_endpoint"] = self.ik_url_edit.text()
 
-        self.config["ai"]["api_key"] = self.ai_key_edit.text()
+        # API key is read from ANTHROPIC_API_KEY environment variable only, not saved to config
         self.config["ai"]["model"] = self.ai_model_edit.text()
 
         self.config["image_processing"]["max_dimension"] = self.max_dim_spin.value()

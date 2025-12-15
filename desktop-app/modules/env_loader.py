@@ -106,8 +106,8 @@ def merge_env_into_config(config: Dict[str, Any], env_vars: Dict[str, str]) -> D
     if "ai" not in merged:
         merged["ai"] = {}
     
-    if env_vars.get("ANTHROPIC_API_KEY"):
-        merged["ai"]["api_key"] = env_vars["ANTHROPIC_API_KEY"]
+    # ANTHROPIC_API_KEY is read directly from environment, not stored in config
+    # This ensures single source of truth for the API key
     
     if env_vars.get("AI_TEMPERATURE"):
         try:
