@@ -712,7 +712,9 @@ class DropZone(QFrame):
 
             # Create a temporary directory to hold the selected files
             temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
-            self._temp_dirs.append(temp_dir)
+            # Track temp dir in the main window application
+            if hasattr(self.window(), '_temp_dirs'):
+                self.window()._temp_dirs.append(temp_dir)
 
             # Copy selected files to temp directory
             for file_path in files:
@@ -1886,6 +1888,7 @@ class KollectItApp(QMainWindow):
             can_export = (
                 bool(self.sku_edit.text().strip()) and
                 bool(self.title_edit.text().strip()) and
+                bool(self.description_edit.toPlainText().strip()) and
                 len(self.uploaded_image_urls) > 0
             )
             self.export_btn.setEnabled(can_export)
