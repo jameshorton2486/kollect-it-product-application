@@ -904,7 +904,7 @@ class KollectItApp(QMainWindow):
         self.ik_public_edit = None
         self.ik_private_edit = None
         self.ik_url_edit = None
-        self.ai_key_edit = None
+        # API key is read from environment variable only
         self.ai_model_edit = None
         self.max_dim_spin = None
         self.quality_spin = None
@@ -2114,10 +2114,12 @@ class KollectItApp(QMainWindow):
         ai_layout = QFormLayout(ai_tab)
         ai_layout.setSpacing(12)
 
-        self.ai_key_edit = QLineEdit()
-        self.ai_key_edit.setText(self.config.get("ai", {}).get("api_key", ""))
-        self.ai_key_edit.setEchoMode(QLineEdit.Password)
-        ai_layout.addRow("Anthropic API Key:", self.ai_key_edit)
+        # API key is read from ANTHROPIC_API_KEY environment variable only
+        # Display status instead of editable field
+        api_key_status = "✓ Configured" if os.getenv("ANTHROPIC_API_KEY") else "✗ Not set (set ANTHROPIC_API_KEY in .env)"
+        api_key_label = QLabel(api_key_status)
+        api_key_label.setStyleSheet("color: #48bb78;" if os.getenv("ANTHROPIC_API_KEY") else "color: #f56565;")
+        ai_layout.addRow("Anthropic API Key:", api_key_label)
 
         self.ai_model_edit = QLineEdit()
         self.ai_model_edit.setText(self.config.get("ai", {}).get("model", "claude-sonnet-4-20250514"))
@@ -2184,7 +2186,7 @@ class KollectItApp(QMainWindow):
         self.config["imagekit"]["private_key"] = self.ik_private_edit.text()
         self.config["imagekit"]["url_endpoint"] = self.ik_url_edit.text()
 
-        self.config["ai"]["api_key"] = self.ai_key_edit.text()
+        # API key is read from ANTHROPIC_API_KEY environment variable only, not saved to config
         self.config["ai"]["model"] = self.ai_model_edit.text()
 
         self.config["image_processing"]["max_dimension"] = self.max_dim_spin.value()

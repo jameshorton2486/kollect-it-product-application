@@ -16,7 +16,7 @@ class ConfigValidator:
     
     REQUIRED_API_FIELDS = ["SERVICE_API_KEY", "production_url"]
     REQUIRED_IMAGEKIT_FIELDS = ["public_key", "private_key", "url_endpoint"]
-    REQUIRED_AI_FIELDS = ["api_key", "model"]
+    REQUIRED_AI_FIELDS = ["model"]  # api_key is read from ANTHROPIC_API_KEY env var only
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -93,9 +93,15 @@ class ConfigValidator:
         """Validate AI configuration."""
         ai = self.config.get("ai", {})
         
+        # Check for required fields (api_key is read from ANTHROPIC_API_KEY env var only)
         for field in self.REQUIRED_AI_FIELDS:
             if not ai.get(field):
                 self.errors.append(f"AI: Missing required field '{field}'")
+        
+        # Check if ANTHROPIC_API_KEY is set in environment
+        import os
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            self.warnings.append("AI: ANTHROPIC_API_KEY environment variable is not set. Set it in .env file.")
         
         # Model validation removed - models update frequently and strict validation is too brittle
         # The AI engine will handle invalid models gracefully
@@ -148,9 +154,12 @@ class ConfigValidator:
         if ik_key and ("YOUR_" in ik_key.upper() or "EXAMPLE" in ik_key.upper()):
             self.warnings.append("ImageKit: private_key appears to be a placeholder value")
         
-        ai_key = self.config.get("ai", {}).get("api_key", "")
-        if ai_key and ("YOUR_" in ai_key.upper() or "EXAMPLE" in ai_key.upper()):
-            self.warnings.append("AI: api_key appears to be a placeholder value")
+        # API key is read from ANTHROPIC_API_KEY environment variable only
+        # Check environment variable instead
+        import os
+        ai_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if ai_key and ("YOUR_" in ai_key.upper() or "EXAMPLE" in ai_key.upper() or "your_" in ai_key.lower()):
+            self.warnings.append("AI: ANTHROPIC_API_KEY appears to be a placeholder value")
     
     def get_validation_report(self) -> str:
         """Get a formatted validation report."""

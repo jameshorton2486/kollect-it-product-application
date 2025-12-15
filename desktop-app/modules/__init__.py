@@ -27,7 +27,7 @@ from .import_wizard import ImportWizard
 
 __all__ = [
     'ImageProcessor',
-    'ImageKitUploader', 
+    'ImageKitUploader',
     'SKUGenerator',
     'SKUScanner',
     'AIEngine',

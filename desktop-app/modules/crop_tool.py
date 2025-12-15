@@ -1,463 +1,435 @@
 #!/usr/bin/env python3
 """
-Crop Tool Module
-Interactive image cropping dialog with various features.
+Improved Crop Tool Module
+Interactive image cropping dialog with:
+- Full original image display (no auto-scaling that cuts the image)
+- Visible crop frame with 4 independent edge handles from the start
+- Restore to original functionality
 """
 
+import shutil
 from pathlib import Path
 from typing import Optional, Tuple
+from datetime import datetime
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QSlider, QComboBox, QWidget, QRubberBand, QSizePolicy,
-    QScrollArea, QCheckBox, QSpinBox, QGroupBox, QFormLayout
+    QSlider, QComboBox, QWidget, QSizePolicy,
+    QScrollArea, QCheckBox, QGroupBox, QMessageBox, QFrame
 )
-from PyQt5.QtCore import Qt, QRect, QPoint, QSize, QTimer
-from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QTransform
+from PyQt5.QtCore import Qt, QRect, QPoint, QSize, QTimer, pyqtSignal
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QBrush, QCursor
 
 from PIL import Image
 
 
-class CropLabel(QLabel):
+class CropOverlay(QWidget):
     """
-    Custom QLabel with crop region selection.
+    Transparent overlay widget for crop selection with visible handles.
+    Displays a crop frame with 4 independent draggable edges.
     """
-
+    
+    crop_changed = pyqtSignal(QRect)
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
-
-        self.rubber_band = None
-        self.origin = QPoint()
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        
+        # Crop rectangle (in widget coordinates)
         self.crop_rect = QRect()
-        self.scale_factor = 1.0
-        self.original_size = QSize()
-
-        # Resizing state
-        self.resize_mode = None  # "top", "bottom", "left", "right", "top_left", etc.
-        self.is_resizing = False
-        self.handle_size = 10  # Detection radius for handles
-
-        # Grid overlay
-        self.show_grid = True
-        self.grid_type = "rule_of_thirds"  # or "grid"
-
-        # Aspect ratio constraint (None for free, or (width, height) tuple)
+        
+        # Handle properties
+        self.handle_size = 12  # Size of corner handles
+        self.edge_thickness = 6  # Thickness of edge hit area
+        
+        # Dragging state
+        self.dragging = None  # "top", "bottom", "left", "right", "top_left", etc., or "move"
+        self.drag_start = QPoint()
+        self.rect_at_drag_start = QRect()
+        
+        # Aspect ratio constraint
         self.aspect_ratio = None
+        
+        # Visual settings
+        self.show_grid = True
+        self.grid_type = "rule_of_thirds"
+        
+        # Colors
+        self.overlay_color = QColor(0, 0, 0, 150)  # Semi-transparent black for outside crop
+        self.handle_color = QColor(255, 255, 255)  # White handles
+        self.border_color = QColor(233, 69, 96)  # Primary accent color
+        self.grid_color = QColor(255, 255, 255, 100)  # Semi-transparent white grid
+    
+    def set_initial_crop(self, rect: QRect):
+        """Set the initial crop rectangle (usually full image bounds)."""
+        self.crop_rect = rect.normalized()
+        self.update()
+        self.crop_changed.emit(self.crop_rect)
+    
+    def set_aspect_ratio(self, aspect: Optional[Tuple[int, int]]):
+        """Set aspect ratio constraint."""
+        self.aspect_ratio = aspect
+    
+    def reset_to_full(self, bounds: QRect):
+        """Reset crop to full image bounds."""
+        self.crop_rect = bounds.normalized()
+        self.update()
+        self.crop_changed.emit(self.crop_rect)
+    
+    def paintEvent(self, event):
+        """Paint the crop overlay with handles and grid."""
+        if not self.crop_rect.isValid():
+            return
+        
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        widget_rect = self.rect()
+        crop = self.crop_rect
+        
+        # Draw semi-transparent overlay outside crop area
+        painter.setBrush(QBrush(self.overlay_color))
+        painter.setPen(Qt.NoPen)
+        
+        # Top region
+        painter.drawRect(0, 0, widget_rect.width(), crop.top())
+        # Bottom region
+        painter.drawRect(0, crop.bottom(), widget_rect.width(), widget_rect.height() - crop.bottom())
+        # Left region (between top and bottom overlays)
+        painter.drawRect(0, crop.top(), crop.left(), crop.height())
+        # Right region (between top and bottom overlays)
+        painter.drawRect(crop.right(), crop.top(), widget_rect.width() - crop.right(), crop.height())
+        
+        # Draw crop border
+        painter.setPen(QPen(self.border_color, 2))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(crop)
+        
+        # Draw grid if enabled
+        if self.show_grid:
+            painter.setPen(QPen(self.grid_color, 1, Qt.DashLine))
+            
+            if self.grid_type == "rule_of_thirds":
+                third_w = crop.width() // 3
+                third_h = crop.height() // 3
+                
+                for i in range(1, 3):
+                    x = crop.x() + third_w * i
+                    y = crop.y() + third_h * i
+                    painter.drawLine(x, crop.top(), x, crop.bottom())
+                    painter.drawLine(crop.left(), y, crop.right(), y)
+            else:
+                fifth_w = crop.width() // 5
+                fifth_h = crop.height() // 5
+                
+                for i in range(1, 5):
+                    x = crop.x() + fifth_w * i
+                    y = crop.y() + fifth_h * i
+                    painter.drawLine(x, crop.top(), x, crop.bottom())
+                    painter.drawLine(crop.left(), y, crop.right(), y)
+        
+        # Draw edge handles (lines on each edge)
+        painter.setPen(QPen(self.handle_color, 3))
+        edge_len = 40  # Length of edge handle indicator
+        
+        # Top edge handle (center)
+        mid_x = crop.x() + crop.width() // 2
+        painter.drawLine(mid_x - edge_len // 2, crop.top(), mid_x + edge_len // 2, crop.top())
+        
+        # Bottom edge handle (center)
+        painter.drawLine(mid_x - edge_len // 2, crop.bottom(), mid_x + edge_len // 2, crop.bottom())
+        
+        # Left edge handle (center)
+        mid_y = crop.y() + crop.height() // 2
+        painter.drawLine(crop.left(), mid_y - edge_len // 2, crop.left(), mid_y + edge_len // 2)
+        
+        # Right edge handle (center)
+        painter.drawLine(crop.right(), mid_y - edge_len // 2, crop.right(), mid_y + edge_len // 2)
+        
+        # Draw corner handles (small squares)
+        painter.setBrush(QBrush(self.handle_color))
+        painter.setPen(QPen(self.border_color, 1))
+        hs = self.handle_size
+        
+        # Top-left
+        painter.drawRect(crop.left() - hs // 2, crop.top() - hs // 2, hs, hs)
+        # Top-right
+        painter.drawRect(crop.right() - hs // 2, crop.top() - hs // 2, hs, hs)
+        # Bottom-left
+        painter.drawRect(crop.left() - hs // 2, crop.bottom() - hs // 2, hs, hs)
+        # Bottom-right
+        painter.drawRect(crop.right() - hs // 2, crop.bottom() - hs // 2, hs, hs)
+        
+        painter.end()
+    
+    def _get_handle_at(self, pos: QPoint) -> Optional[str]:
+        """Determine which handle (if any) is at the given position."""
+        if not self.crop_rect.isValid():
+            return None
+        
+        r = self.crop_rect
+        x, y = pos.x(), pos.y()
+        hs = self.handle_size
+        et = self.edge_thickness
+        
+        # Check corners first (they take priority)
+        if abs(x - r.left()) < hs and abs(y - r.top()) < hs:
+            return "top_left"
+        if abs(x - r.right()) < hs and abs(y - r.top()) < hs:
+            return "top_right"
+        if abs(x - r.left()) < hs and abs(y - r.bottom()) < hs:
+            return "bottom_left"
+        if abs(x - r.right()) < hs and abs(y - r.bottom()) < hs:
+            return "bottom_right"
+        
+        # Check edges
+        if abs(y - r.top()) < et and r.left() < x < r.right():
+            return "top"
+        if abs(y - r.bottom()) < et and r.left() < x < r.right():
+            return "bottom"
+        if abs(x - r.left()) < et and r.top() < y < r.bottom():
+            return "left"
+        if abs(x - r.right()) < et and r.top() < y < r.bottom():
+            return "right"
+        
+        # Check if inside crop area (for moving)
+        if r.contains(pos):
+            return "move"
+        
+        return None
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            handle = self._get_handle_at(event.pos())
+            if handle:
+                self.dragging = handle
+                self.drag_start = event.pos()
+                self.rect_at_drag_start = QRect(self.crop_rect)
+    
+    def mouseMoveEvent(self, event):
+        if self.dragging:
+            self._handle_drag(event.pos())
+        else:
+            # Update cursor based on position
+            handle = self._get_handle_at(event.pos())
+            if handle in ["left", "right"]:
+                self.setCursor(Qt.SizeHorCursor)
+            elif handle in ["top", "bottom"]:
+                self.setCursor(Qt.SizeVerCursor)
+            elif handle in ["top_left", "bottom_right"]:
+                self.setCursor(Qt.SizeFDiagCursor)
+            elif handle in ["top_right", "bottom_left"]:
+                self.setCursor(Qt.SizeBDiagCursor)
+            elif handle == "move":
+                self.setCursor(Qt.SizeAllCursor)
+            else:
+                self.setCursor(Qt.ArrowCursor)
+    
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.dragging = None
+            self.crop_changed.emit(self.crop_rect)
+    
+    def _handle_drag(self, pos: QPoint):
+        """Handle dragging of edges/corners."""
+        r = self.rect_at_drag_start
+        delta = pos - self.drag_start
+        
+        new_left = r.left()
+        new_top = r.top()
+        new_right = r.right()
+        new_bottom = r.bottom()
+        
+        min_size = 50  # Minimum crop size
+        
+        if self.dragging == "move":
+            # Move the entire rectangle
+            new_rect = r.translated(delta)
+            # Constrain to widget bounds
+            if new_rect.left() < 0:
+                new_rect.moveLeft(0)
+            if new_rect.top() < 0:
+                new_rect.moveTop(0)
+            if new_rect.right() > self.width():
+                new_rect.moveRight(self.width())
+            if new_rect.bottom() > self.height():
+                new_rect.moveBottom(self.height())
+            self.crop_rect = new_rect
+        else:
+            # Resize based on which handle is being dragged
+            if "left" in self.dragging:
+                new_left = min(r.left() + delta.x(), new_right - min_size)
+                new_left = max(0, new_left)
+            if "right" in self.dragging:
+                new_right = max(r.right() + delta.x(), new_left + min_size)
+                new_right = min(self.width(), new_right)
+            if "top" in self.dragging:
+                new_top = min(r.top() + delta.y(), new_bottom - min_size)
+                new_top = max(0, new_top)
+            if "bottom" in self.dragging:
+                new_bottom = max(r.bottom() + delta.y(), new_top + min_size)
+                new_bottom = min(self.height(), new_bottom)
+            
+            self.crop_rect = QRect(
+                QPoint(int(new_left), int(new_top)),
+                QPoint(int(new_right), int(new_bottom))
+            ).normalized()
+        
+        self.update()
+        self.crop_changed.emit(self.crop_rect)
 
-        # Callback for selection updates
-        self.selection_callback = None
 
+class ImageLabel(QLabel):
+    """Simple label for displaying the image."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.scale_factor = 1.0
+        self.original_pixmap = None
+    
     def set_image(self, pixmap: QPixmap, scale: float = 1.0):
-        """Set the image and scale factor."""
+        """Set the image with optional scaling."""
+        self.original_pixmap = pixmap
         self.scale_factor = scale
-        self.original_size = pixmap.size()
-
+        
         if scale != 1.0:
             scaled = pixmap.scaled(
-                pixmap.size() * scale,
+                int(pixmap.width() * scale),
+                int(pixmap.height() * scale),
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation
             )
             self.setPixmap(scaled)
+            self.setFixedSize(scaled.size())
         else:
             self.setPixmap(pixmap)
-
-        self.adjustSize()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            # Check if clicking on an existing selection handle
-            mode = self._get_resize_mode(event.pos())
-
-            if mode:
-                self.is_resizing = True
-                self.resize_mode = mode
-            else:
-                # Start new selection
-                self.is_resizing = False
-                self.origin = event.pos()
-                if not self.rubber_band:
-                    self.rubber_band = QRubberBand(QRubberBand.Rectangle, self)
-                self.rubber_band.setGeometry(QRect(self.origin, QSize()))
-                self.rubber_band.show()
-
-    def mouseMoveEvent(self, event):
-        # Update cursor and resize mode when not dragging
-        if not event.buttons() & Qt.LeftButton:
-            mode = self._get_resize_mode(event.pos())
-            if mode in ["left", "right"]:
-                self.setCursor(Qt.SizeHorCursor)
-            elif mode in ["top", "bottom"]:
-                self.setCursor(Qt.SizeVerCursor)
-            elif mode in ["top_left", "bottom_right"]:
-                self.setCursor(Qt.SizeFDiagCursor)
-            elif mode in ["top_right", "bottom_left"]:
-                self.setCursor(Qt.SizeBDiagCursor)
-            else:
-                self.setCursor(Qt.CrossCursor)
-            return
-
-        # Handle dragging
-        if self.is_resizing and self.crop_rect.isValid():
-            self._handle_resize(event.pos())
-        elif self.rubber_band and self.rubber_band.isVisible():
-            # Creating new selection
-            rect = self._calculate_constrained_rect(self.origin, event.pos())
-            self.rubber_band.setGeometry(rect)
-            # Notify parent dialog of selection update
-            if self.selection_callback:
-                self.selection_callback(rect)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            if self.is_resizing:
-                self.is_resizing = False
-                self.resize_mode = None
-            elif self.rubber_band:
-                self.crop_rect = self.rubber_band.geometry()
-
-            # Notify parent dialog of selection update
-            if self.selection_callback:
-                self.selection_callback(self.crop_rect)
-            self.update()
-
-    def _get_resize_mode(self, pos: QPoint) -> Optional[str]:
-        """Determine resize mode based on mouse position relative to crop rect."""
-        if not self.crop_rect.isValid():
-            return None
-
-        r = self.crop_rect
-        x, y = pos.x(), pos.y()
-        h = self.handle_size
-
-        # Check corners first
-        if abs(x - r.left()) < h and abs(y - r.top()) < h: return "top_left"
-        if abs(x - r.right()) < h and abs(y - r.top()) < h: return "top_right"
-        if abs(x - r.left()) < h and abs(y - r.bottom()) < h: return "bottom_left"
-        if abs(x - r.right()) < h and abs(y - r.bottom()) < h: return "bottom_right"
-
-        # Check sides
-        if abs(x - r.left()) < h and r.top() < y < r.bottom(): return "left"
-        if abs(x - r.right()) < h and r.top() < y < r.bottom(): return "right"
-        if abs(y - r.top()) < h and r.left() < x < r.right(): return "top"
-        if abs(y - r.bottom()) < h and r.left() < x < r.right(): return "bottom"
-
-        return None
-
-    def _handle_resize(self, pos: QPoint):
-        """Handle resizing of the crop rectangle."""
-        r = self.crop_rect
-        mode = self.resize_mode
-
-        left, top, right, bottom = r.left(), r.top(), r.right(), r.bottom()
-
-        # Update coordinates based on handle being dragged
-        if "left" in mode: left = min(pos.x(), right - 10)
-        if "right" in mode: right = max(pos.x(), left + 10)
-        if "top" in mode: top = min(pos.y(), bottom - 10)
-        if "bottom" in mode: bottom = max(pos.y(), top + 10)
-
-        new_rect = QRect(QPoint(left, top), QPoint(right, bottom)).normalized()
-
-        # Apply bounds constraint
-        new_rect = new_rect.intersected(self.rect())
-
-        # TODO: Apply aspect ratio constraint if needed
-        # For now, we allow free resizing which might break aspect ratio
-        # If aspect ratio is strict, we would need to recalculate the other dimension
-
-        self.crop_rect = new_rect
-        if self.rubber_band:
-            self.rubber_band.setGeometry(new_rect)
-
-        if self.selection_callback:
-            self.selection_callback(new_rect)
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-
-        if self.show_grid and self.pixmap():
-            painter = QPainter(self)
-            painter.setPen(QPen(QColor(255, 255, 255, 100), 1, Qt.DashLine))
-
-            rect = self.crop_rect if self.crop_rect.isValid() else self.rect()
-
-            if self.grid_type == "rule_of_thirds":
-                # Rule of thirds lines
-                third_w = rect.width() // 3
-                third_h = rect.height() // 3
-
-                for i in range(1, 3):
-                    # Vertical lines
-                    x = rect.x() + third_w * i
-                    painter.drawLine(x, rect.y(), x, rect.y() + rect.height())
-
-                    # Horizontal lines
-                    y = rect.y() + third_h * i
-                    painter.drawLine(rect.x(), y, rect.x() + rect.width(), y)
-
-            elif self.grid_type == "grid":
-                # 5x5 grid
-                cell_w = rect.width() // 5
-                cell_h = rect.height() // 5
-
-                for i in range(1, 5):
-                    x = rect.x() + cell_w * i
-                    y = rect.y() + cell_h * i
-                    painter.drawLine(x, rect.y(), x, rect.y() + rect.height())
-                    painter.drawLine(rect.x(), y, rect.x() + rect.width(), y)
-
-            painter.end()
-
-    def get_crop_rect_original(self) -> QRect:
-        """Get crop rectangle in original image coordinates."""
-        if not self.crop_rect.isValid():
-            return QRect()
-
-        return QRect(
-            int(self.crop_rect.x() / self.scale_factor),
-            int(self.crop_rect.y() / self.scale_factor),
-            int(self.crop_rect.width() / self.scale_factor),
-            int(self.crop_rect.height() / self.scale_factor)
-        )
-
-    def _calculate_constrained_rect(self, start: QPoint, end: QPoint) -> QRect:
-        """
-        Calculate crop rectangle with aspect ratio constraint.
-
-        Args:
-            start: Starting point of the selection
-            end: Current mouse position
-
-        Returns:
-            QRect constrained to aspect ratio if set, otherwise free-form
-        """
-        if not self.aspect_ratio:
-            # Free-form selection
-            return QRect(start, end).normalized()
-
-        # Calculate base rectangle
-        base_rect = QRect(start, end).normalized()
-        width = base_rect.width()
-        height = base_rect.height()
-
-        # Get aspect ratio
-        aspect_w, aspect_h = self.aspect_ratio
-        target_ratio = aspect_w / aspect_h
-
-        # Calculate constrained dimensions
-        if width / max(height, 1) > target_ratio:
-            # Width is too large, constrain by width
-            height = int(width / target_ratio)
-        else:
-            # Height is too large, constrain by height
-            width = int(height * target_ratio)
-
-        # Determine which corner to anchor (use the corner closest to start)
-        dx = end.x() - start.x()
-        dy = end.y() - start.y()
-
-        # Calculate new position to keep the start point fixed
-        if dx >= 0 and dy >= 0:
-            # Dragging down-right: keep top-left
-            new_rect = QRect(start.x(), start.y(), width, height)
-        elif dx < 0 and dy >= 0:
-            # Dragging down-left: keep top-right
-            new_rect = QRect(start.x() - width, start.y(), width, height)
-        elif dx >= 0 and dy < 0:
-            # Dragging up-right: keep bottom-left
-            new_rect = QRect(start.x(), start.y() - height, width, height)
-        else:
-            # Dragging up-left: keep bottom-right
-            new_rect = QRect(start.x() - width, start.y() - height, width, height)
-
-        # Ensure rectangle stays within image bounds while maintaining aspect ratio
-        img_rect = self.rect()
-
-        # First, ensure the rectangle fits within bounds by adjusting position
-        # Use iterative approach to handle cases where one adjustment affects another
-        max_iterations = 5
-        for _ in range(max_iterations):
-            adjusted = False
-
-            # Check and fix left boundary
-            if new_rect.left() < img_rect.left():
-                new_rect.moveLeft(img_rect.left())
-                adjusted = True
-
-            # Check and fix top boundary
-            if new_rect.top() < img_rect.top():
-                new_rect.moveTop(img_rect.top())
-                adjusted = True
-
-            # Check and fix right boundary
-            if new_rect.right() > img_rect.right():
-                new_rect.moveRight(img_rect.right())
-                adjusted = True
-
-            # Check and fix bottom boundary
-            if new_rect.bottom() > img_rect.bottom():
-                new_rect.moveBottom(img_rect.bottom())
-                adjusted = True
-
-            # If no adjustments were needed, we're done
-            if not adjusted:
-                break
-
-        # After bounds adjustment, check if we need to fix aspect ratio
-        if new_rect.width() > 0 and new_rect.height() > 0:
-            current_ratio = new_rect.width() / new_rect.height()
-            if abs(current_ratio - target_ratio) > 0.01:  # Allow small floating point errors
-                # Aspect ratio was broken by bounds adjustment - fix it
-                # Calculate maximum available space from current position
-                max_width = img_rect.right() - new_rect.left()
-                max_height = img_rect.bottom() - new_rect.top()
-
-                # Ensure we have valid space
-                max_width = max(1, max_width)
-                max_height = max(1, max_height)
-
-                # Calculate dimensions that maintain aspect ratio and fit within available space
-                width_by_height = int(max_height * target_ratio)
-                height_by_width = int(max_width / target_ratio)
-
-                # Choose the constraint that results in the largest rectangle that fits
-                if width_by_height <= max_width:
-                    # Constrain by height (width fits within available space)
-                    new_width = width_by_height
-                    new_height = max_height
-                else:
-                    # Constrain by width (height fits within available space)
-                    new_width = max_width
-                    new_height = height_by_width
-
-                # Ensure dimensions are valid
-                new_width = max(1, new_width)
-                new_height = max(1, new_height)
-
-                # Update dimensions while keeping the top-left corner fixed
-                new_rect.setWidth(new_width)
-                new_rect.setHeight(new_height)
-
-        # Final bounds validation - ALWAYS execute to ensure rectangle is within bounds
-        # This handles cases where aspect ratio is preserved but rectangle is still out-of-bounds
-        # Use iterative approach again to handle interdependencies
-        for _ in range(max_iterations):
-            adjusted = False
-
-            # If rectangle exceeds right boundary, move it left
-            if new_rect.right() > img_rect.right():
-                new_rect.moveLeft(img_rect.right() - new_rect.width())
-                adjusted = True
-
-            # If rectangle exceeds bottom boundary, move it up
-            if new_rect.bottom() > img_rect.bottom():
-                new_rect.moveTop(img_rect.bottom() - new_rect.height())
-                adjusted = True
-
-            # If rectangle is now too far left, move it right
-            if new_rect.left() < img_rect.left():
-                new_rect.moveLeft(img_rect.left())
-                adjusted = True
-
-            # If rectangle is now too far up, move it down
-            if new_rect.top() < img_rect.top():
-                new_rect.moveTop(img_rect.top())
-                adjusted = True
-
-            # If rectangle is too wide, shrink it (maintaining aspect ratio if needed)
-            if new_rect.width() > img_rect.width():
-                new_rect.setWidth(img_rect.width())
-                if self.aspect_ratio:
-                    new_rect.setHeight(int(new_rect.width() / target_ratio))
-                adjusted = True
-
-            # If rectangle is too tall, shrink it (maintaining aspect ratio if needed)
-            if new_rect.height() > img_rect.height():
-                new_rect.setHeight(img_rect.height())
-                if self.aspect_ratio:
-                    new_rect.setWidth(int(new_rect.height() * target_ratio))
-                adjusted = True
-
-            # If no adjustments were needed, we're done
-            if not adjusted:
-                break
-
-        return new_rect.normalized()
-
-    def set_aspect_ratio(self, aspect_ratio: Optional[Tuple[int, int]]):
-        """Set the aspect ratio constraint (None for free-form)."""
-        self.aspect_ratio = aspect_ratio
-        # Reset selection when aspect ratio changes
-        self.reset_selection()
-
-    def reset_selection(self):
-        """Clear the crop selection."""
-        if self.rubber_band:
-            self.rubber_band.hide()
-            self.rubber_band = None  # Ensure rubber band is fully reset
-        self.crop_rect = QRect()
-
-        # Notify callback that selection is cleared
-        if self.selection_callback:
-            self.selection_callback(self.crop_rect)
-
-        self.update()
+            self.setFixedSize(pixmap.size())
 
 
 class CropDialog(QDialog):
     """
-    Image cropping dialog with rotation and aspect ratio controls.
+    Improved image cropping dialog with:
+    - Full original image display
+    - Visible crop frame with draggable edges from the start
+    - Restore to original functionality
     """
-
+    
     def __init__(self, image_path: str, parent=None):
         super().__init__(parent)
         self.image_path = Path(image_path)
         self.original_image = None
         self.current_rotation = 0
         self.output_path = None
-
+        self.backup_path = None
+        
         self.setWindowTitle(f"Crop Image - {self.image_path.name}")
-        self.setMinimumSize(900, 700)
-
+        self.setMinimumSize(1000, 800)
+        
+        # Apply dark theme
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #1e1e2e;
+                color: #ffffff;
+            }
+            QGroupBox {
+                background-color: #1a1a2e;
+                border: 1px solid #3d3d5c;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding: 12px;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: #e94560;
+            }
+            QPushButton {
+                background-color: #e94560;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c73e54;
+            }
+            QPushButton:disabled {
+                background-color: #3d3d5c;
+                color: #6b6b8a;
+            }
+            QComboBox {
+                background-color: #1a1a2e;
+                border: 2px solid #3d3d5c;
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: white;
+            }
+            QCheckBox {
+                color: white;
+            }
+            QLabel {
+                color: white;
+            }
+            QSlider::groove:horizontal {
+                height: 8px;
+                background: #1a1a2e;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                width: 18px;
+                height: 18px;
+                margin: -5px 0;
+                background: #e94560;
+                border-radius: 9px;
+            }
+            QScrollArea {
+                background-color: #0f0f1a;
+                border: 2px solid #3d3d5c;
+                border-radius: 8px;
+            }
+        """)
+        
         self.setup_ui()
         self.load_image()
-
+    
     def setup_ui(self):
         """Set up the dialog UI."""
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
-
+        
         # Toolbar area
         toolbar = QHBoxLayout()
-
+        
         # Rotation controls
         rotate_group = QGroupBox("Rotation")
         rotate_layout = QHBoxLayout(rotate_group)
-
+        
         self.rotate_left_btn = QPushButton("↶ 90°")
         self.rotate_left_btn.clicked.connect(lambda: self.rotate(-90))
         rotate_layout.addWidget(self.rotate_left_btn)
-
+        
         self.rotate_right_btn = QPushButton("↷ 90°")
         self.rotate_right_btn.clicked.connect(lambda: self.rotate(90))
         rotate_layout.addWidget(self.rotate_right_btn)
-
+        
         self.flip_h_btn = QPushButton("⇆ Flip H")
         self.flip_h_btn.clicked.connect(lambda: self.flip("horizontal"))
         rotate_layout.addWidget(self.flip_h_btn)
-
+        
         self.flip_v_btn = QPushButton("⇅ Flip V")
         self.flip_v_btn.clicked.connect(lambda: self.flip("vertical"))
         rotate_layout.addWidget(self.flip_v_btn)
-
+        
         toolbar.addWidget(rotate_group)
-
+        
         # Aspect ratio controls
         aspect_group = QGroupBox("Aspect Ratio")
         aspect_layout = QHBoxLayout(aspect_group)
-
+        
         self.aspect_combo = QComboBox()
         self.aspect_combo.addItems([
             "Free",
@@ -471,148 +443,169 @@ class CropDialog(QDialog):
         ])
         self.aspect_combo.currentIndexChanged.connect(self.on_aspect_changed)
         aspect_layout.addWidget(self.aspect_combo)
-
+        
         toolbar.addWidget(aspect_group)
-
+        
         # Grid controls
         grid_group = QGroupBox("Grid Overlay")
         grid_layout = QHBoxLayout(grid_group)
-
+        
         self.grid_check = QCheckBox("Show Grid")
         self.grid_check.setChecked(True)
         self.grid_check.stateChanged.connect(self.toggle_grid)
         grid_layout.addWidget(self.grid_check)
-
+        
         self.grid_combo = QComboBox()
         self.grid_combo.addItems(["Rule of Thirds", "Grid 5x5"])
         self.grid_combo.currentIndexChanged.connect(self.change_grid_type)
         grid_layout.addWidget(self.grid_combo)
-
+        
         toolbar.addWidget(grid_group)
         toolbar.addStretch()
-
+        
         layout.addLayout(toolbar)
-
-        # Image area with scroll
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(False)  # Allow widget to be larger than view
-        scroll.setAlignment(Qt.AlignCenter)
-
-        self.crop_label = CropLabel()
-        self.crop_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.crop_label.selection_callback = self.update_crop_size_label
-        scroll.setWidget(self.crop_label)
-
-        layout.addWidget(scroll, stretch=1)
-
+        
+        # Image area with scroll and overlay
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setAlignment(Qt.AlignCenter)
+        
+        # Container for image and overlay
+        self.image_container = QWidget()
+        container_layout = QVBoxLayout(self.image_container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Image label
+        self.image_label = ImageLabel()
+        
+        # Crop overlay (positioned on top of image)
+        self.crop_overlay = CropOverlay(self.image_label)
+        self.crop_overlay.crop_changed.connect(self.on_crop_changed)
+        
+        self.scroll_area.setWidget(self.image_label)
+        layout.addWidget(self.scroll_area, stretch=1)
+        
         # Zoom controls
         zoom_layout = QHBoxLayout()
-
+        
         zoom_layout.addWidget(QLabel("Zoom:"))
-
+        
         self.zoom_slider = QSlider(Qt.Horizontal)
         self.zoom_slider.setRange(25, 200)
         self.zoom_slider.setValue(100)
         self.zoom_slider.valueChanged.connect(self.on_zoom_changed)
         zoom_layout.addWidget(self.zoom_slider)
-
+        
         self.zoom_label = QLabel("100%")
         self.zoom_label.setMinimumWidth(50)
         zoom_layout.addWidget(self.zoom_label)
-
-        self.fit_btn = QPushButton("Fit")
+        
+        self.fit_btn = QPushButton("Fit to Window")
         self.fit_btn.clicked.connect(self.fit_to_window)
         zoom_layout.addWidget(self.fit_btn)
-
-        self.reset_btn = QPushButton("Reset Selection")
-        self.reset_btn.clicked.connect(self.crop_label.reset_selection)
-        zoom_layout.addWidget(self.reset_btn)
-
-        layout.addLayout(zoom_layout)
-
-        # Info area
-        info_layout = QHBoxLayout()
-
-        self.size_label = QLabel("Original: -- x --")
-        info_layout.addWidget(self.size_label)
-
-        self.crop_size_label = QLabel("Crop: -- x --")
-        info_layout.addWidget(self.crop_size_label)
-
-        info_layout.addStretch()
-
-        layout.addLayout(info_layout)
-
-        # Dialog buttons
-        btn_layout = QHBoxLayout()
-
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(self.cancel_btn)
-
-        btn_layout.addStretch()
-
-        self.apply_btn = QPushButton("Apply Crop")
-        self.apply_btn.clicked.connect(self.apply_crop)
-        self.apply_btn.setStyleSheet("""
+        
+        self.actual_btn = QPushButton("100%")
+        self.actual_btn.clicked.connect(self.show_actual_size)
+        zoom_layout.addWidget(self.actual_btn)
+        
+        self.reset_crop_btn = QPushButton("Reset Crop")
+        self.reset_crop_btn.clicked.connect(self.reset_crop_to_full)
+        self.reset_crop_btn.setStyleSheet("""
             QPushButton {
-                background-color: #e94560;
-                color: white;
-                font-weight: bold;
-                padding: 10px 24px;
+                background-color: #0f3460;
+            }
+            QPushButton:hover {
+                background-color: #1f4470;
             }
         """)
+        zoom_layout.addWidget(self.reset_crop_btn)
+        
+        layout.addLayout(zoom_layout)
+        
+        # Info area
+        info_layout = QHBoxLayout()
+        
+        self.size_label = QLabel("Original: -- x --")
+        info_layout.addWidget(self.size_label)
+        
+        self.crop_size_label = QLabel("Crop: -- x --")
+        info_layout.addWidget(self.crop_size_label)
+        
+        info_layout.addStretch()
+        
+        layout.addLayout(info_layout)
+        
+        # Dialog buttons
+        btn_layout = QHBoxLayout()
+        
+        self.restore_btn = QPushButton("🔄 Restore Original")
+        self.restore_btn.clicked.connect(self.restore_original)
+        self.restore_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #48bb78;
+            }
+            QPushButton:hover {
+                background-color: #38a169;
+            }
+        """)
+        self.restore_btn.setEnabled(False)  # Enabled only if backup exists
+        btn_layout.addWidget(self.restore_btn)
+        
+        btn_layout.addStretch()
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d5c;
+            }
+            QPushButton:hover {
+                background-color: #4d4d6c;
+            }
+        """)
+        btn_layout.addWidget(self.cancel_btn)
+        
+        self.apply_btn = QPushButton("Apply Crop")
+        self.apply_btn.clicked.connect(self.apply_crop)
         btn_layout.addWidget(self.apply_btn)
-
+        
         layout.addLayout(btn_layout)
-
-    def update_crop_size_label(self, rect: QRect):
-        """Update the crop size label with current selection dimensions."""
-        if not rect.isValid() or rect.isEmpty():
-            if self.crop_label.aspect_ratio:
-                w, h = self.crop_label.aspect_ratio
-                self.crop_size_label.setText(f"Crop: {w}:{h} (constrained)")
-            else:
-                self.crop_size_label.setText("Crop: -- x --")
-        else:
-            # Convert to original image coordinates for display
-            orig_rect = QRect(
-                int(rect.x() / self.crop_label.scale_factor),
-                int(rect.y() / self.crop_label.scale_factor),
-                int(rect.width() / self.crop_label.scale_factor),
-                int(rect.height() / self.crop_label.scale_factor)
-            )
-            if self.crop_label.aspect_ratio:
-                w, h = self.crop_label.aspect_ratio
-                self.crop_size_label.setText(
-                    f"Crop: {orig_rect.width()} x {orig_rect.height()} ({w}:{h})"
-                )
-            else:
-                self.crop_size_label.setText(
-                    f"Crop: {orig_rect.width()} x {orig_rect.height()}"
-                )
-
+    
     def load_image(self):
         """Load the image for editing."""
         self.original_image = Image.open(self.image_path)
-        self.update_display()
-
+        
+        # Check for existing backup
+        self.backup_path = self.image_path.parent / ".originals" / f"{self.image_path.stem}_original{self.image_path.suffix}"
+        self.restore_btn.setEnabled(self.backup_path.exists())
+        
         w, h = self.original_image.size
         self.size_label.setText(f"Original: {w} x {h}")
-
-        # Fit to window initially
-        QTimer.singleShot(0, self.fit_to_window)
-
+        
+        # Display at 100% initially (full size)
+        self.update_display()
+        
+        # Initialize crop overlay to full image
+        QTimer.singleShot(100, self.init_crop_overlay)
+    
+    def init_crop_overlay(self):
+        """Initialize crop overlay after image is displayed."""
+        if self.image_label.pixmap():
+            size = self.image_label.pixmap().size()
+            self.crop_overlay.setGeometry(0, 0, size.width(), size.height())
+            self.crop_overlay.set_initial_crop(QRect(0, 0, size.width(), size.height()))
+            self.crop_overlay.show()
+    
     def update_display(self):
         """Update the displayed image."""
         if not self.original_image:
             return
-
+        
         # Apply rotation
         img = self.original_image
         if self.current_rotation != 0:
             img = img.rotate(-self.current_rotation, expand=True)
-
+        
         # Convert to QPixmap
         if img.mode == "RGBA":
             qim = QImage(
@@ -621,97 +614,178 @@ class CropDialog(QDialog):
                 QImage.Format_RGBA8888
             )
         else:
-            img = img.convert("RGB")
+            img_rgb = img.convert("RGB")
             qim = QImage(
-                img.tobytes("raw", "RGB"),
-                img.width, img.height,
+                img_rgb.tobytes("raw", "RGB"),
+                img_rgb.width, img_rgb.height,
                 QImage.Format_RGB888
             )
-
+        
         pixmap = QPixmap.fromImage(qim)
-
+        
         # Apply zoom
         zoom = self.zoom_slider.value() / 100
-        self.crop_label.set_image(pixmap, zoom)
-
+        self.image_label.set_image(pixmap, zoom)
+        
+        # Update crop overlay size
+        if self.image_label.pixmap():
+            size = self.image_label.pixmap().size()
+            self.crop_overlay.setGeometry(0, 0, size.width(), size.height())
+            
+            # Scale crop rect if zoom changed
+            if self.crop_overlay.crop_rect.isValid():
+                # Keep proportional crop
+                pass
+            else:
+                self.crop_overlay.set_initial_crop(QRect(0, 0, size.width(), size.height()))
+    
+    def on_crop_changed(self, rect: QRect):
+        """Handle crop rectangle changes."""
+        if not rect.isValid():
+            self.crop_size_label.setText("Crop: -- x --")
+            return
+        
+        # Convert to original image coordinates
+        zoom = self.zoom_slider.value() / 100
+        orig_w = int(rect.width() / zoom)
+        orig_h = int(rect.height() / zoom)
+        self.crop_size_label.setText(f"Crop: {orig_w} x {orig_h}")
+    
+    def reset_crop_to_full(self):
+        """Reset crop selection to full image."""
+        if self.image_label.pixmap():
+            size = self.image_label.pixmap().size()
+            self.crop_overlay.reset_to_full(QRect(0, 0, size.width(), size.height()))
+    
+    def show_actual_size(self):
+        """Show image at 100% zoom."""
+        self.zoom_slider.setValue(100)
+    
     def rotate(self, degrees: int):
         """Rotate the image."""
         self.current_rotation = (self.current_rotation + degrees) % 360
-        self.crop_label.reset_selection()
         self.update_display()
-
+        self.reset_crop_to_full()
+    
     def flip(self, direction: str):
         """Flip the image."""
         if direction == "horizontal":
             self.original_image = self.original_image.transpose(Image.FLIP_LEFT_RIGHT)
         else:
             self.original_image = self.original_image.transpose(Image.FLIP_TOP_BOTTOM)
-
-        self.crop_label.reset_selection()
+        
         self.update_display()
-
+        self.reset_crop_to_full()
+    
     def on_zoom_changed(self, value: int):
         """Handle zoom slider change."""
         self.zoom_label.setText(f"{value}%")
+        
+        # Remember current crop proportions
+        old_rect = self.crop_overlay.crop_rect
+        old_zoom = getattr(self, '_last_zoom', 100) / 100
+        
         self.update_display()
-
+        
+        # Scale crop to new zoom
+        if old_rect.isValid():
+            new_zoom = value / 100
+            scale = new_zoom / old_zoom if old_zoom > 0 else 1
+            
+            new_rect = QRect(
+                int(old_rect.x() * scale),
+                int(old_rect.y() * scale),
+                int(old_rect.width() * scale),
+                int(old_rect.height() * scale)
+            )
+            
+            # Ensure within bounds
+            if self.image_label.pixmap():
+                size = self.image_label.pixmap().size()
+                new_rect = new_rect.intersected(QRect(0, 0, size.width(), size.height()))
+            
+            self.crop_overlay.crop_rect = new_rect
+            self.crop_overlay.update()
+            self.on_crop_changed(new_rect)
+        
+        self._last_zoom = value
+    
     def fit_to_window(self):
-        """Fit image to window."""
+        """Fit image to window size."""
         if not self.original_image:
             return
-
-        # Calculate fit zoom
-        parent_size = self.crop_label.parent().size()
+        
+        scroll_size = self.scroll_area.size()
         img_size = self.original_image.size
-
-        zoom_w = (parent_size.width() - 40) / img_size[0] * 100
-        zoom_h = (parent_size.height() - 40) / img_size[1] * 100
-
-        fit_zoom = min(zoom_w, zoom_h, 100)
-
-        self.zoom_slider.setValue(int(fit_zoom))
-
+        
+        zoom_w = (scroll_size.width() - 40) / img_size[0] * 100
+        zoom_h = (scroll_size.height() - 40) / img_size[1] * 100
+        
+        fit_zoom = int(min(zoom_w, zoom_h, 200))
+        self.zoom_slider.setValue(fit_zoom)
+    
     def on_aspect_changed(self, index: int):
         """Handle aspect ratio selection."""
-        # Parse aspect ratio from selection
         aspect_map = {
-            0: None,  # Free
-            1: (1, 1),  # 1:1 Square
-            2: (4, 3),  # 4:3
-            3: (3, 4),  # 3:4
-            4: (16, 9),  # 16:9
-            5: (9, 16),  # 9:16
-            6: (3, 2),  # 3:2
-            7: (2, 3)   # 2:3
+            0: None,
+            1: (1, 1),
+            2: (4, 3),
+            3: (3, 4),
+            4: (16, 9),
+            5: (9, 16),
+            6: (3, 2),
+            7: (2, 3)
         }
-
-        aspect_ratio = aspect_map.get(index)
-        self.crop_label.set_aspect_ratio(aspect_ratio)
-
-        # Update crop size label to show aspect ratio info
-        if aspect_ratio:
-            w, h = aspect_ratio
-            self.crop_size_label.setText(f"Crop: {w}:{h} (constrained)")
-        else:
-            self.crop_size_label.setText("Crop: -- x --")
-
+        
+        self.crop_overlay.set_aspect_ratio(aspect_map.get(index))
+    
     def toggle_grid(self, state: int):
         """Toggle grid overlay."""
-        self.crop_label.show_grid = state == Qt.Checked
-        self.crop_label.update()
-
+        self.crop_overlay.show_grid = state == Qt.Checked
+        self.crop_overlay.update()
+    
     def change_grid_type(self, index: int):
-        """Change grid overlay type."""
-        types = ["rule_of_thirds", "grid"]
-        self.crop_label.grid_type = types[index]
-        self.crop_label.update()
-
+        """Change grid type."""
+        self.crop_overlay.grid_type = "rule_of_thirds" if index == 0 else "grid"
+        self.crop_overlay.update()
+    
+    def restore_original(self):
+        """Restore the original image from backup."""
+        if not self.backup_path or not self.backup_path.exists():
+            QMessageBox.warning(self, "No Backup", "No original backup found for this image.")
+            return
+        
+        reply = QMessageBox.question(
+            self, "Restore Original",
+            f"Restore the original version of this image?\n\nThis will replace the current file:\n{self.image_path}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                shutil.copy2(self.backup_path, self.image_path)
+                self.original_image = Image.open(self.image_path)
+                self.current_rotation = 0
+                self.update_display()
+                self.reset_crop_to_full()
+                
+                w, h = self.original_image.size
+                self.size_label.setText(f"Original: {w} x {h}")
+                
+                QMessageBox.information(self, "Restored", "Original image has been restored.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to restore: {e}")
+    
     def apply_crop(self):
         """Apply the crop and save."""
-        crop_rect = self.crop_label.get_crop_rect_original()
-
+        crop_rect = self.crop_overlay.crop_rect
+        
+        # Convert from display coordinates to original image coordinates
+        zoom = self.zoom_slider.value() / 100
+        
         if not crop_rect.isValid() or crop_rect.isEmpty():
-            # No crop selected - just save with rotation
+            # No crop - just save with rotation
             img = self.original_image
             if self.current_rotation != 0:
                 img = img.rotate(-self.current_rotation, expand=True)
@@ -720,22 +794,39 @@ class CropDialog(QDialog):
             img = self.original_image
             if self.current_rotation != 0:
                 img = img.rotate(-self.current_rotation, expand=True)
-
-            # Then crop
+            
+            # Convert crop rect to original coordinates
+            orig_rect = QRect(
+                int(crop_rect.x() / zoom),
+                int(crop_rect.y() / zoom),
+                int(crop_rect.width() / zoom),
+                int(crop_rect.height() / zoom)
+            )
+            
+            # Apply crop
             box = (
-                max(0, crop_rect.x()),
-                max(0, crop_rect.y()),
-                min(img.width, crop_rect.x() + crop_rect.width()),
-                min(img.height, crop_rect.y() + crop_rect.height())
+                max(0, orig_rect.x()),
+                max(0, orig_rect.y()),
+                min(img.width, orig_rect.x() + orig_rect.width()),
+                min(img.height, orig_rect.y() + orig_rect.height())
             )
             img = img.crop(box)
-
+        
+        # Create backup of original before saving
+        backup_dir = self.image_path.parent / ".originals"
+        backup_dir.mkdir(exist_ok=True)
+        
+        backup_file = backup_dir / f"{self.image_path.stem}_original{self.image_path.suffix}"
+        if not backup_file.exists():
+            # Only backup if no backup exists yet
+            shutil.copy2(self.image_path, backup_file)
+        
         # Save to processed folder
         output_dir = self.image_path.parent / "processed"
         output_dir.mkdir(exist_ok=True)
-
+        
         self.output_path = output_dir / f"{self.image_path.stem}-cropped.webp"
-
+        
         # Convert to RGB if needed
         if img.mode in ("RGBA", "P"):
             background = Image.new("RGB", img.size, (255, 255, 255))
@@ -744,11 +835,11 @@ class CropDialog(QDialog):
             if img.mode == "RGBA":
                 background.paste(img, mask=img.split()[-1])
             img = background
-
+        
         img.save(self.output_path, format="WEBP", quality=90)
-
+        
         self.accept()
-
+    
     def get_cropped_path(self) -> Optional[str]:
         """Get the path to the cropped image."""
         return str(self.output_path) if self.output_path else None

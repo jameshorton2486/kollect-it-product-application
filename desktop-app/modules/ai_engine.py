@@ -48,8 +48,8 @@ class AIEngine:
 
         self.provider = ai_config.get("provider", "anthropic")
         self.model = ai_config.get("model", "claude-sonnet-4-20250514")
-        # Check .env first, fallback to config.json
-        self.api_key = os.getenv("ANTHROPIC_API_KEY") or ai_config.get("api_key", "")
+        # Read API key from environment variable only (ANTHROPIC_API_KEY in .env file)
+        self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
         self.max_tokens = ai_config.get("max_tokens", 4000)
         # Check .env for temperature override, fallback to config.json
         temp_str = os.getenv("AI_TEMPERATURE")
