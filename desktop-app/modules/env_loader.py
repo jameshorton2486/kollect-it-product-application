@@ -36,7 +36,7 @@ def load_env_file(env_path: Path = None) -> Dict[str, str]:
 
     # Use python-dotenv if available
     if DOTENV_AVAILABLE:
-        load_dotenv(env_path)
+        load_dotenv(env_path, override=True)
         # Read all relevant env vars
         env_vars = {
             "SERVICE_API_KEY": os.getenv("SERVICE_API_KEY", ""),

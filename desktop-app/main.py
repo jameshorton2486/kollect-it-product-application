@@ -21,6 +21,9 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 VERSION = "1.0.0"
+IMAGE_GRID_COLUMNS = 4
+THUMBNAIL_SIZE = 150
+MAX_IMAGES = 20
 
 # Load environment variables from .env file (if available)
 try:
@@ -28,7 +31,7 @@ try:
     # Load .env from desktop-app directory
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
-        load_dotenv(env_path)
+        load_dotenv(env_path, override=True)
 except ImportError:
     # python-dotenv not installed, continue without .env support
     pass
@@ -676,6 +679,7 @@ class DropZone(QFrame):
         dialog.setFileMode(QFileDialog.Directory)
         dialog.setOption(QFileDialog.ShowDirsOnly, False)  # Allow seeing files
         dialog.setViewMode(QFileDialog.Detail)  # Try to show details/icons
+        dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.webp *.tiff *.bmp);;All Files (*)")
 
         if dialog.exec_() == QFileDialog.Accepted:
             folder = dialog.selectedFiles()[0]
