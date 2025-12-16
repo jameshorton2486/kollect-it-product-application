@@ -7,7 +7,7 @@ This package contains all processing modules for the Kollect-It automation syste
 Modules:
     - image_processor: Image optimization and WebP conversion
     - imagekit_uploader: ImageKit CDN integration
-    
+
     - ai_engine: AI-powered description and valuation
     - background_remover: AI background removal
     - crop_tool: Interactive image cropping
