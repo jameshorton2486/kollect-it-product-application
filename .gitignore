@@ -84,3 +84,6 @@ desktop-app/config/user_preferences.json
 
 # Logs
 desktop-app/logs/*.log
+
+desktop-app/processed/
+desktop-app/temp/
