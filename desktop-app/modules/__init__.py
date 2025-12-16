@@ -7,7 +7,7 @@ This package contains all processing modules for the Kollect-It automation syste
 Modules:
     - image_processor: Image optimization and WebP conversion
     - imagekit_uploader: ImageKit CDN integration
-    - sku_generator: SKU generation and management
+    
     - ai_engine: AI-powered description and valuation
     - background_remover: AI background removal
     - crop_tool: Interactive image cropping
@@ -19,7 +19,6 @@ Modules:
 
 from .image_processor import ImageProcessor
 from .imagekit_uploader import ImageKitUploader
-from .sku_generator import SKUGenerator
 from .sku_scanner import SKUScanner
 from .ai_engine import AIEngine
 from .background_remover import BackgroundRemover, check_rembg_installation, REMBG_AVAILABLE
@@ -35,7 +34,6 @@ __all__ = [
     # Core processing
     'ImageProcessor',
     'ImageKitUploader',
-    'SKUGenerator',
     'SKUScanner',
     'AIEngine',
     'BackgroundRemover',
