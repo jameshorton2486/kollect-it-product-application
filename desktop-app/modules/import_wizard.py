@@ -105,7 +105,7 @@ class PhotoThumbnail(QFrame):
             filename = filename[:17] + "..."
         self.name_label = QLabel(filename)
         self.name_label.setAlignment(Qt.AlignCenter)
-        self.name_label.setStyleSheet("color: #a0a0a0; font-size: 13px;")
+        self.name_label.setStyleSheet("color: #a0a0a0; font-size: 14px;")
         self.name_label.setWordWrap(True)
         layout.addWidget(self.name_label)
 
@@ -175,7 +175,7 @@ class PhotoThumbnail(QFrame):
         except Exception as e:
             self.image_label.clear()
             self.image_label.setText("Error\nLoading")
-            self.image_label.setStyleSheet("color: #fc8181; font-size: 12px;")
+            self.image_label.setStyleSheet("color: #fc8181; font-size: 14px;")
             print(f"Error loading thumbnail for {self.file_path}: {e}")
 
     def mousePressEvent(self, event):

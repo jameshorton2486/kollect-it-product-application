@@ -119,7 +119,7 @@ class DarkPalette:
                 min-height: 20px;
             }}
 
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, 
+            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus,
             QDoubleSpinBox:focus, QComboBox:focus {{
                 border-color: {cls.PRIMARY};
                 background-color: #1e1e32;
@@ -192,7 +192,7 @@ class DarkPalette:
                 border-radius: 6px;
                 height: 12px;
                 text-align: center;
-                font-size: 13px;
+                font-size: 14px;
                 color: {cls.TEXT};
             }}
 

@@ -72,3 +72,15 @@ logs/
 work_files/
 desktop-app/processed/**/*.webp
 desktop-app/temp/**/*.webp
+
+# Ignore user-specific config files (store only examples in repo)
+desktop-app/config/config.json
+desktop-app/config/sku_state.json
+
+# Config files with user data (don't commit secrets)
+desktop-app/config/config.json
+desktop-app/config/sku_state.json
+desktop-app/config/user_preferences.json
+
+# Logs
+desktop-app/logs/*.log
