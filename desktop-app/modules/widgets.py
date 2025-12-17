@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap, QDragEnterEvent, QDropEvent
 
-from .theme import DarkPalette
+from .theme_clean import DarkPalette
 
 
 # Constants
@@ -204,7 +204,7 @@ class DropZone(QFrame):
         if files:
             # Create a temporary folder structure for individual files
             temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
-            
+
             # Track temp dir in the main window application
             main_window = self.window()
             if hasattr(main_window, '_temp_dirs'):

@@ -24,9 +24,9 @@ VERSION = "1.0.0"
 IMAGE_GRID_COLUMNS = 4
 THUMBNAIL_SIZE = 150
 MAX_IMAGES = 20
-MAX_AI_IMAGES_DESCRIPTION = 5
-MAX_AI_IMAGES_VALUATION = 3
-MAX_AI_IMAGES_ANALYZE = 5
+MAX_AI_IMAGES_DESCRIPTION = 10  # Increased from 5 for richer context
+MAX_AI_IMAGES_VALUATION = 5     # Increased from 3 for valuation context
+MAX_AI_IMAGES_ANALYZE = 12  # Explicit cap for Analyze Images
 
 # Load environment variables from .env file (if available)
 try:
@@ -67,7 +67,7 @@ from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
 from modules.output_generator import OutputGenerator  # type: ignore
 from modules.config_validator import ConfigValidator  # type: ignore
-from modules.theme import DarkPalette  # type: ignore
+from modules.theme_clean import DarkPalette  # type: ignore
 import logging
 from pathlib import Path as _Path
 
@@ -582,6 +582,11 @@ class KollectItApp(QMainWindow):
         self.setWindowTitle(f"Kollect-It Product Manager v{VERSION}")
         self.setMinimumSize(1600, 1000)
         try:
+            try:
+                import logging as _logging
+                _logging.getLogger(__name__).info(f"Using DarkPalette from module: {DarkPalette.__module__}")
+            except Exception:
+                pass
             self.setStyleSheet(DarkPalette.get_stylesheet())
         except Exception as e:
             import traceback
@@ -1489,14 +1494,45 @@ class KollectItApp(QMainWindow):
 
             result = engine.generate_description(product_data)
 
-            if result:
-                self.description_edit.setPlainText(result.get("description", ""))
-                self.seo_title_edit.setText(result.get("seo_title", ""))
-                self.seo_desc_edit.setPlainText(result.get("seo_description", ""))
-                self.seo_keywords_edit.setText(", ".join(result.get("keywords", [])))
+            # DEBUG: Print what we got back (remove after testing)
+            print(f"AI Result: {result}")
 
+            if result:
+                # CHECK FOR ERRORS FIRST
+                if result.get("error"):
+                    self.log(f"AI Error: {result['error']}", "error")
+                    QMessageBox.warning(self, "AI Error", f"Failed to generate description:\n\n{result['error']}")
+                    self.status_label.setText("AI error - check log")
+                    return
+
+                # Populate description
+                description = result.get("description", "")
+                if description:
+                    self.description_edit.setPlainText(description)
+                    self.log(f"Description generated ({len(description)} chars)", "info")
+                else:
+                    self.log("Warning: No description in AI response", "warning")
+
+                # Populate SEO fields
+                seo_title = result.get("seo_title", "")
+                if seo_title:
+                    self.seo_title_edit.setText(seo_title)
+                    self.log(f"SEO Title: {seo_title}", "info")
+
+                seo_desc = result.get("seo_description", "")
+                if seo_desc:
+                    self.seo_desc_edit.setPlainText(seo_desc)
+                    self.log(f"SEO Description: {seo_desc[:50]}...", "info")
+
+                keywords = result.get("keywords", [])
+                if keywords:
+                    self.seo_keywords_edit.setText(", ".join(keywords))
+                    self.log(f"Keywords: {len(keywords)} generated", "info")
+
+                # Populate suggested title
                 if result.get("suggested_title"):
                     self.title_edit.setText(result["suggested_title"])
+                    self.log(f"Suggested title: {result['suggested_title']}", "info")
 
                 # Handle valuation if present (from description generation)
                 valuation = result.get("valuation")
@@ -1505,12 +1541,10 @@ class KollectItApp(QMainWindow):
                     low = valuation.get("low") or 0
                     high = valuation.get("high") or 0
                     if recommended:
-                        # Display pricing research (don't auto-set price)
                         self.log(
-                            f"Price Research (from description): ${low:,.2f} - ${high:,.2f} (Rec: ${recommended:,.2f})",
+                            f"Price Research: ${low:,.2f} - ${high:,.2f} (Recommended: ${recommended:,.2f})",
                             "info"
                         )
-                        # Store for later use
                         self.last_valuation = {
                             "low": low,
                             "high": high,
@@ -1519,15 +1553,15 @@ class KollectItApp(QMainWindow):
                             "notes": valuation.get("notes", "")
                         }
 
-                self.log("AI description generated", "success")
-
-                # Update export button state
+                self.log("AI description generated successfully", "success")
                 self.update_export_button_state()
             else:
                 self.log("AI generation returned no results", "warning")
+                QMessageBox.warning(self, "AI Error", "No response from AI. Check your API key configuration.")
 
         except Exception as e:
             self.log(f"AI error: {e}", "error")
+            QMessageBox.critical(self, "AI Error", f"Exception occurred:\n\n{str(e)}")
 
         self.status_label.setText("Ready")
 

@@ -1,4 +1,3 @@
-
 """
 Kollect-It Product Manager - Theme Module
 Dark theme color palette and stylesheet for the application.
@@ -43,7 +42,7 @@ class DarkPalette:
     @classmethod
     def get_stylesheet(cls) -> str:
         """Generate stylesheet with color replacements."""
-
+        
         # Define the stylesheet as a regular string (no f-string)
         # Use $VARIABLE$ placeholders that we'll replace
         template = """
@@ -156,7 +155,7 @@ class DarkPalette:
                 min-height: 16px;
             }
 
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus,
+            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, 
             QDoubleSpinBox:focus, QComboBox:focus {
                 border-color: $PRIMARY$;
                 background-color: #1e1e32;
