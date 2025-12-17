@@ -468,3 +468,72 @@ Return ONLY a JSON array of keywords, no other text."""
                 pass
 
         return []
+
+    def suggest_fields(
+        self,
+        product_data: Dict[str, Any],
+        categories: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Infer product fields from images and brief context.
+
+        Expects to return JSON with keys:
+        - title (str)
+        - category_id (one of categories keys)
+        - subcategory (str)
+        - condition (str)
+        - era (str)
+        - origin (str)
+        - description (str)
+        - seo_title (str)
+        - seo_description (str)
+        - keywords (list[str])
+        - valuation {low, high, recommended}
+        """
+
+        # Build a compact categories spec the model can choose from
+        cat_spec = {
+            k: {
+                "display": v.get("display_name", k.title()),
+                "subcategories": v.get("subcategories", [])
+            }
+            for k, v in categories.items()
+        }
+
+        system_prompt = (
+            "You are an expert cataloger for antiques/collectibles. "
+            "Given product photos, infer practical listing fields. "
+            "Prefer conservative, factual outputs."
+        )
+
+        prompt = (
+            "Analyze the images and suggest product metadata.\n\n"
+            f"CATEGORIES (choose a category_id key):\n{json.dumps(cat_spec, indent=2)}\n\n"
+            "Return ONLY a JSON object with keys: {\n"
+            "  \"title\": str,\n"
+            "  \"category_id\": str,   // one of the category keys above\n"
+            "  \"subcategory\": str,   // must be one listed for the category when possible\n"
+            "  \"condition\": str,\n"
+            "  \"era\": str,\n"
+            "  \"origin\": str,\n"
+            "  \"description\": str,\n"
+            "  \"seo_title\": str,\n"
+            "  \"seo_description\": str,\n"
+            "  \"keywords\": [str,...],\n"
+            "  \"valuation\": { \"low\": number, \"high\": number, \"recommended\": number }\n"
+            "}\n\n"
+            "Be decisive. If unsure, choose the most plausible category/subcategory."
+        )
+
+        images = product_data.get("images", [])
+        response = self._call_anthropic(prompt, images, system_prompt)
+
+        if response:
+            try:
+                cleaned = self._clean_json_response(response)
+                return json.loads(cleaned)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parse error: {e}")
+                logger.debug(f"Raw response: {response[:500]}...")
+                return None
+
+        return None

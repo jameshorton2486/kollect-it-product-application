@@ -1,483 +1,586 @@
-#!/usr/bin/env python3
 """
-Theme Module
-Dark theme color palette and stylesheet for the Kollect-It Product Manager.
+Kollect-It Product Manager - Theme Module
+Dark theme color palette and stylesheet for the application.
+
+Button Hierarchy:
+- Primary: Main action (Export Package, Generate AI) - Pink accent
+- Secondary: Supporting actions (Upload, Browse) - Muted blue
+- Utility: Minor tools (Crop, Remove BG, Optimize) - Outline/subtle
+
+Font Size: 13px base (Windows-compatible)
 """
 
 
 class DarkPalette:
-    """Dark theme color palette for the application - IMPROVED READABILITY."""
+    """Dark theme color palette for the application."""
 
-    # Backgrounds - slightly lighter for better contrast
+    # Backgrounds
     BACKGROUND = "#1e1e2e"       # Main background
     SURFACE = "#1a1a2e"          # Card/panel background
     SURFACE_LIGHT = "#252542"    # Hover states
 
     # Primary colors
-    PRIMARY = "#e94560"          # Accent color
+    PRIMARY = "#e94560"          # Accent color (pink)
     PRIMARY_DARK = "#c73e54"     # Darker accent
-    SECONDARY = "#0f3460"        # Secondary accent
+    SECONDARY = "#0f3460"        # Secondary accent (blue)
 
-    # Text colors - IMPROVED CONTRAST
+    # Text colors
     TEXT = "#ffffff"             # Primary text - pure white
-    TEXT_SECONDARY = "#b4b4b4"   # Secondary text - lighter
+    TEXT_SECONDARY = "#b4b4b4"   # Secondary text
     TEXT_MUTED = "#8888a0"       # Muted/placeholder text
 
     # Borders
-    BORDER = "#3d3d5c"           # Border color - more visible
+    BORDER = "#3d3d5c"           # Border color
     BORDER_FOCUS = "#e94560"     # Focus border
 
     # Status colors
-    SUCCESS = "#4ade80"          # Brighter green
-    WARNING = "#fbbf24"          # Brighter yellow
-    ERROR = "#f87171"            # Error red
-    INFO = "#60a5fa"             # Info blue
+    SUCCESS = "#4ade80"          # Green
+    WARNING = "#fbbf24"          # Yellow
+    ERROR = "#f87171"            # Red
+    INFO = "#60a5fa"             # Blue
+
+    # Button tier colors
+    BTN_SECONDARY_BG = "#2b3145"
+    BTN_SECONDARY_HOVER = "#3a4160"
+    BTN_UTILITY_BG = "#1e1e2e"
+    BTN_UTILITY_BORDER = "#3d3d5c"
+    BTN_UTILITY_HOVER = "#252542"
 
     @classmethod
     def get_stylesheet(cls) -> str:
-        """Generate the complete application stylesheet."""
         return f"""
             /* ============================================
-               GLOBAL STYLES - Larger base font
+               GLOBAL STYLES - 13px base font
                ============================================ */
-            QMainWindow, QWidget {{
+            QMainWindow, QWidget {{{{
                 background-color: {cls.BACKGROUND};
                 color: {cls.TEXT};
                 font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 16px;
-            }}
+                font-size: 13px;
+            }}}}
 
             /* ============================================
                GROUP BOXES - Section containers
                ============================================ */
-            QGroupBox {{
+            QGroupBox {{{{
                 background-color: {cls.SURFACE};
                 border: 1px solid {cls.BORDER};
-                border-radius: 8px;
-                margin-top: 16px;
-                padding: 16px;
-                padding-top: 24px;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding: 12px;
+                padding-top: 20px;
                 font-weight: bold;
-                font-size: 17px;
-            }}
+                font-size: 13px;
+            }}}}
 
-            QGroupBox::title {{
+            QGroupBox::title {{{{
                 subcontrol-origin: margin;
-                left: 16px;
-                top: 4px;
-                padding: 0 10px;
+                left: 12px;
+                top: 2px;
+                padding: 0 8px;
                 color: {cls.PRIMARY};
-                font-size: 17px;
+                font-size: 13px;
                 font-weight: bold;
-            }}
+            }}}}
 
             /* ============================================
-               BUTTONS - More prominent
+               BUTTONS - Three-Tier Hierarchy
                ============================================ */
-            QPushButton {{
+
+            /* Default button style (Secondary) */
+            QPushButton {{{{
+                background-color: {cls.BTN_SECONDARY_BG};
+                color: {cls.TEXT_SECONDARY};
+                border: 1px solid {cls.BORDER};
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: 500;
+                font-size: 13px;
+                min-height: 18px;
+            }}}}
+
+            QPushButton:hover {{{{
+                background-color: {cls.BTN_SECONDARY_HOVER};
+                color: {cls.TEXT};
+                border-color: {cls.TEXT_MUTED};
+            }}}}
+
+            QPushButton:pressed {{{{
+                background-color: {cls.SURFACE};
+            }}}}
+
+            QPushButton:disabled {{{{
+                background-color: #2a2a3a;
+                color: #5a5a6a;
+                border-color: #3a3a4a;
+            }}}}
+
+            /* Primary action buttons - Pink accent */
+            QPushButton[class="primary"],
+            QPushButton#exportBtn,
+            QPushButton#generateDescBtn,
+            QPushButton#generateValuationBtn,
+            QPushButton#newProductBtn {{{{
                 background-color: {cls.PRIMARY};
                 color: white;
                 border: none;
-                border-radius: 6px;
-                padding: 12px 24px;
                 font-weight: bold;
-                font-size: 16px;
-                min-height: 24px;
-            }}
+            }}}}
 
-            QPushButton:hover {{
+            QPushButton[class="primary"]:hover,
+            QPushButton#exportBtn:hover,
+            QPushButton#generateDescBtn:hover,
+            QPushButton#generateValuationBtn:hover,
+            QPushButton#newProductBtn:hover {{{{
                 background-color: {cls.PRIMARY_DARK};
-            }}
+                color: white;
+            }}}}
 
-            QPushButton:pressed {{
+            QPushButton[class="primary"]:pressed,
+            QPushButton#exportBtn:pressed,
+            QPushButton#generateDescBtn:pressed,
+            QPushButton#generateValuationBtn:pressed,
+            QPushButton#newProductBtn:pressed {{{{
                 background-color: #a83246;
-            }}
+            }}}}
 
-            QPushButton:disabled {{
-                background-color: #3d3d5c;
-                color: #6b6b8a;
-            }}
+            /* Utility buttons - Subtle/outline style */
+            QPushButton[class="utility"],
+            QPushButton#cropBtn,
+            QPushButton#removeBgBtn,
+            QPushButton#optimizeBtn {{{{
+                background-color: transparent;
+                color: {cls.TEXT_SECONDARY};
+                border: 1px solid {cls.BORDER};
+            }}}}
 
-            QPushButton.secondary {{
-                background-color: {cls.SECONDARY};
-            }}
-
-            QPushButton.secondary:hover {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
+            QPushButton[class="utility"]:hover,
+            QPushButton#cropBtn:hover,
+            QPushButton#removeBgBtn:hover,
+            QPushButton#optimizeBtn:hover {{{{
+                background-color: {cls.BTN_UTILITY_HOVER};
+                color: {cls.TEXT};
+                border-color: {cls.TEXT_MUTED};
+            }}}}
 
             /* ============================================
-               INPUT FIELDS - Better visibility
+               INPUT FIELDS
                ============================================ */
-            QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
+            QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{{{
                 background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 6px;
-                padding: 10px 14px;
+                border: 1px solid {cls.BORDER};
+                border-radius: 4px;
+                padding: 6px 10px;
                 color: {cls.TEXT};
-                font-size: 16px;
-                min-height: 20px;
-            }}
+                font-size: 13px;
+                min-height: 16px;
+            }}}}
 
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus,
-            QDoubleSpinBox:focus, QComboBox:focus {{
+            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{{{
                 border-color: {cls.PRIMARY};
                 background-color: #1e1e32;
-            }}
+            }}}}
 
-            QLineEdit::placeholder, QTextEdit::placeholder {{
+            QLineEdit::placeholder, QTextEdit::placeholder {{{{
                 color: {cls.TEXT_MUTED};
-            }}
+            }}}}
 
             /* ============================================
                COMBO BOX - Dropdown styling
                ============================================ */
-            QComboBox {{
-                padding-right: 30px;
-            }}
+            QComboBox {{{{
+                padding-right: 24px;
+            }}}}
 
-            QComboBox::drop-down {{
+            QComboBox::drop-down {{{{
                 border: none;
-                width: 30px;
-            }}
+                width: 24px;
+            }}}}
 
-            QComboBox::down-arrow {{
+            QComboBox::down-arrow {{{{
                 image: none;
-                border-left: 6px solid transparent;
-                border-right: 6px solid transparent;
-                border-top: 8px solid {cls.TEXT};
-                margin-right: 12px;
-            }}
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid {cls.TEXT};
+                margin-right: 8px;
+            }}}}
 
-            QComboBox QAbstractItemView {{
+            QComboBox QAbstractItemView {{{{
                 background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 6px;
+                border: 1px solid {cls.BORDER};
+                border-radius: 4px;
                 color: {cls.TEXT};
                 selection-background-color: {cls.SURFACE_LIGHT};
                 padding: 4px;
-                font-size: 16px;
-            }}
+                font-size: 13px;
+            }}}}
 
-            QComboBox QAbstractItemView::item {{
-                padding: 8px 12px;
-                min-height: 28px;
-            }}
+            QComboBox QAbstractItemView::item {{{{
+                padding: 6px 10px;
+                min-height: 22px;
+            }}}}
 
-            QComboBox QAbstractItemView::item:hover {{
+            QComboBox QAbstractItemView::item:hover {{{{
                 background-color: {cls.SURFACE_LIGHT};
-            }}
+            }}}}
 
             /* ============================================
                SPIN BOXES - Number inputs
                ============================================ */
             QSpinBox::up-button, QDoubleSpinBox::up-button,
-            QSpinBox::down-button, QDoubleSpinBox::down-button {{
+            QSpinBox::down-button, QDoubleSpinBox::down-button {{{{
                 background-color: {cls.SURFACE_LIGHT};
                 border: none;
-                width: 24px;
-            }}
+                width: 20px;
+            }}}}
 
             QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{{{
                 background-color: {cls.PRIMARY};
-            }}
+            }}}}
 
             /* ============================================
-               PROGRESS BAR - More visible
+               PROGRESS BAR
                ============================================ */
-            QProgressBar {{
+            QProgressBar {{{{
                 background-color: {cls.SURFACE};
                 border: none;
-                border-radius: 6px;
-                height: 12px;
+                border-radius: 4px;
+                height: 10px;
                 text-align: center;
-                font-size: 14px;
+                font-size: 11px;
                 color: {cls.TEXT};
-            }}
+            }}}}
 
-            QProgressBar::chunk {{
+            QProgressBar::chunk {{{{
                 background-color: {cls.PRIMARY};
-                border-radius: 6px;
-            }}
+                border-radius: 4px;
+            }}}}
 
             /* ============================================
                LIST WIDGET - File lists
                ============================================ */
-            QListWidget {{
+            QListWidget {{{{
                 background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 6px;
-                padding: 6px;
-                font-size: 16px;
-            }}
-
-            QListWidget::item {{
-                padding: 10px;
+                border: 1px solid {cls.BORDER};
                 border-radius: 4px;
-                margin: 2px 0;
-            }}
+                padding: 4px;
+                font-size: 13px;
+            }}}}
 
-            QListWidget::item:selected {{
+            QListWidget::item {{{{
+                padding: 6px;
+                border-radius: 3px;
+                margin: 1px 0;
+            }}}}
+
+            QListWidget::item:selected {{{{
                 background-color: {cls.SURFACE_LIGHT};
                 color: {cls.TEXT};
-            }}
+            }}}}
 
-            QListWidget::item:hover {{
+            QListWidget::item:hover {{{{
                 background-color: {cls.SECONDARY};
-            }}
+            }}}}
 
             /* ============================================
                TABS - Navigation tabs
                ============================================ */
-            QTabWidget::pane {{
+            QTabWidget::pane {{{{
                 background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 8px;
-                top: -2px;
-            }}
+                border: 1px solid {cls.BORDER};
+                border-radius: 6px;
+                top: -1px;
+            }}}}
 
-            QTabBar::tab {{
+            QTabBar::tab {{{{
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT_SECONDARY};
-                padding: 12px 24px;
-                margin-right: 4px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-                font-size: 16px;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                font-size: 13px;
                 font-weight: bold;
-                border: 2px solid transparent;
+                border: 1px solid transparent;
                 border-bottom: none;
-            }}
+            }}}}
 
-            QTabBar::tab:selected {{
-                background-color: {cls.SURFACE};
+            QTabBar::tab:selected {{{{
+                background-color: #1f2937;
                 color: {cls.PRIMARY};
                 border-color: {cls.BORDER};
-            }}
+                border-bottom: 2px solid {cls.PRIMARY};
+            }}}}
 
-            QTabBar::tab:hover:!selected {{
+            QTabBar::tab:hover:!selected {{{{
                 background-color: {cls.SURFACE_LIGHT};
                 color: {cls.TEXT};
-            }}
+            }}}}
 
             /* ============================================
-               SCROLL BARS - Wider and more visible
+               SCROLL BARS
                ============================================ */
-            QScrollBar:vertical {{
+            QScrollBar:vertical {{{{
                 background-color: {cls.SURFACE};
-                width: 14px;
-                border-radius: 7px;
+                width: 12px;
+                border-radius: 6px;
                 margin: 2px;
-            }}
+            }}}}
 
-            QScrollBar::handle:vertical {{
+            QScrollBar::handle:vertical {{{{
                 background-color: {cls.BORDER};
-                border-radius: 7px;
-                min-height: 40px;
-            }}
+                border-radius: 6px;
+                min-height: 30px;
+            }}}}
 
-            QScrollBar::handle:vertical:hover {{
+            QScrollBar::handle:vertical:hover {{{{
                 background-color: {cls.TEXT_MUTED};
-            }}
+            }}}}
 
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{{{
                 height: 0px;
-            }}
+            }}}}
 
-            QScrollBar:horizontal {{
+            QScrollBar:horizontal {{{{
                 background-color: {cls.SURFACE};
-                height: 14px;
-                border-radius: 7px;
+                height: 12px;
+                border-radius: 6px;
                 margin: 2px;
-            }}
+            }}}}
 
-            QScrollBar::handle:horizontal {{
+            QScrollBar::handle:horizontal {{{{
                 background-color: {cls.BORDER};
-                border-radius: 7px;
-                min-width: 40px;
-            }}
+                border-radius: 6px;
+                min-width: 30px;
+            }}}}
 
             /* ============================================
-               LABELS - Text styling
+               LABELS
                ============================================ */
-            QLabel {{
+            QLabel {{{{
                 color: {cls.TEXT};
-                font-size: 16px;
-            }}
+                font-size: 13px;
+            }}}}
 
-            QLabel.title {{
-                font-size: 30px;
+            QLabel[class="title"] {{{{
+                font-size: 22px;
                 font-weight: bold;
                 color: {cls.PRIMARY};
-            }}
+            }}}}
 
-            QLabel.subtitle {{
-                font-size: 18px;
+            QLabel[class="subtitle"] {{{{
+                font-size: 14px;
                 color: {cls.TEXT_SECONDARY};
-            }}
+            }}}}
 
-            QLabel.section-header {{
-                font-size: 18px;
+            QLabel[class="section-header"] {{{{
+                font-size: 14px;
                 font-weight: bold;
                 color: {cls.PRIMARY};
-            }}
+            }}}}
 
             /* ============================================
                CHECKBOXES
                ============================================ */
-            QCheckBox {{
+            QCheckBox {{{{
                 color: {cls.TEXT};
-                spacing: 10px;
-                font-size: 16px;
-            }}
+                spacing: 8px;
+                font-size: 13px;
+            }}}}
 
-            QCheckBox::indicator {{
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
-                border: 2px solid {cls.BORDER};
+            QCheckBox::indicator {{{{
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                border: 1px solid {cls.BORDER};
                 background-color: {cls.SURFACE};
-            }}
+            }}}}
 
-            QCheckBox::indicator:checked {{
+            QCheckBox::indicator:checked {{{{
                 background-color: {cls.PRIMARY};
                 border-color: {cls.PRIMARY};
-            }}
+            }}}}
 
-            QCheckBox::indicator:hover {{
+            QCheckBox::indicator:hover {{{{
                 border-color: {cls.PRIMARY};
-            }}
+            }}}}
 
             /* ============================================
                SLIDERS
                ============================================ */
-            QSlider::groove:horizontal {{
-                height: 8px;
+            QSlider::groove:horizontal {{{{
+                height: 6px;
                 background-color: {cls.SURFACE};
-                border-radius: 4px;
-            }}
+                border-radius: 3px;
+            }}}}
 
-            QSlider::handle:horizontal {{
-                width: 20px;
-                height: 20px;
-                margin: -6px 0;
+            QSlider::handle:horizontal {{{{
+                width: 16px;
+                height: 16px;
+                margin: -5px 0;
                 background-color: {cls.PRIMARY};
-                border-radius: 10px;
-            }}
+                border-radius: 8px;
+            }}}}
 
-            QSlider::handle:horizontal:hover {{
+            QSlider::handle:horizontal:hover {{{{
                 background-color: {cls.PRIMARY_DARK};
-            }}
+            }}}}
 
-            QSlider::sub-page:horizontal {{
+            QSlider::sub-page:horizontal {{{{
                 background-color: {cls.PRIMARY};
-                border-radius: 4px;
-            }}
+                border-radius: 3px;
+            }}}}
 
             /* ============================================
                STATUS BAR
                ============================================ */
-            QStatusBar {{
+            QStatusBar {{{{
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT};
-                font-size: 15px;
-                padding: 6px;
+                font-size: 12px;
+                padding: 4px;
                 border-top: 1px solid {cls.BORDER};
-            }}
+            }}}}
 
             /* ============================================
                MENU BAR
                ============================================ */
-            QMenuBar {{
+            QMenuBar {{{{
                 background-color: {cls.SURFACE};
                 color: {cls.TEXT};
-                padding: 6px;
-                font-size: 16px;
-            }}
+                padding: 4px;
+                font-size: 13px;
+            }}}}
 
-            QMenuBar::item {{
-                padding: 8px 14px;
+            QMenuBar::item {{{{
+                padding: 6px 12px;
                 border-radius: 4px;
-            }}
+            }}}}
 
-            QMenuBar::item:selected {{
+            QMenuBar::item:selected {{{{
                 background-color: {cls.SURFACE_LIGHT};
-            }}
+            }}}}
 
-            QMenu {{
+            QMenu {{{{
                 background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 8px;
-                padding: 6px;
-                font-size: 16px;
-            }}
+                border: 1px solid {cls.BORDER};
+                border-radius: 6px;
+                padding: 4px;
+                font-size: 13px;
+            }}}}
 
-            QMenu::item {{
-                padding: 10px 28px;
+            QMenu::item {{{{
+                padding: 8px 24px;
                 border-radius: 4px;
-            }}
+            }}}}
 
-            QMenu::item:selected {{
+            QMenu::item:selected {{{{
                 background-color: {cls.SURFACE_LIGHT};
-            }}
+            }}}}
 
-            QMenu::separator {{
+            QMenu::separator {{{{
                 height: 1px;
                 background-color: {cls.BORDER};
-                margin: 6px 10px;
-            }}
+                margin: 4px 8px;
+            }}}}
 
             /* ============================================
                TOOLBAR
                ============================================ */
-            QToolBar {{
+            QToolBar {{{{
                 background-color: {cls.SURFACE};
                 border: none;
-                spacing: 10px;
-                padding: 10px;
+                spacing: 8px;
+                padding: 6px;
                 border-bottom: 1px solid {cls.BORDER};
-            }}
+            }}}}
 
-            QToolBar QToolButton {{
+            QToolBar QToolButton {{{{
                 background-color: transparent;
                 color: {cls.TEXT};
-                padding: 8px 14px;
-                border-radius: 6px;
-                font-size: 16px;
-            }}
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-size: 13px;
+            }}}}
 
-            QToolBar QToolButton:hover {{
+            QToolBar QToolButton:hover {{{{
                 background-color: {cls.SURFACE_LIGHT};
-            }}
+            }}}}
 
             /* ============================================
-               TEXT EDIT - Activity log, descriptions
+               TEXT EDIT - Descriptions
                ============================================ */
-            QTextEdit {{
-                font-size: 16px;
-                line-height: 1.5;
-            }}
+            QTextEdit {{{{
+                font-size: 13px;
+                line-height: 1.4;
+            }}}}
+
+            /* Activity Log - Darker, monospace */
+            QTextEdit#activityLog {{{{
+                background-color: #0f172a;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 11px;
+                border: 1px solid {cls.BORDER};
+            }}}}
 
             /* ============================================
-               FORM LABELS - Row labels
+               FORM LABELS - Lighter color
                ============================================ */
-            QFormLayout QLabel {{
-                font-size: 16px;
+            QFormLayout QLabel {{{{
+                font-size: 13px;
                 font-weight: 500;
                 color: {cls.TEXT_SECONDARY};
-                min-width: 90px;
-            }}
+                min-width: 80px;
+            }}}}
 
             /* ============================================
                TOOLTIPS
                ============================================ */
-            QToolTip {{
+            QToolTip {{{{
                 background-color: {cls.SURFACE_LIGHT};
                 color: {cls.TEXT};
                 border: 1px solid {cls.BORDER};
                 border-radius: 4px;
-                padding: 8px;
-                font-size: 15px;
-            }}
+                padding: 6px;
+                font-size: 12px;
+            }}}}
+
+            /* ============================================
+               DROP ZONE
+               ============================================ */
+            QFrame#dropZone {{{{
+                background-color: {cls.SURFACE};
+                border: 2px dashed {cls.BORDER};
+                border-radius: 10px;
+            }}}}
+
+            QFrame#dropZone:hover {{{{
+                border-color: {cls.PRIMARY};
+            }}}}
+
+            /* ============================================
+               IMAGE THUMBNAILS
+               ============================================ */
+            QLabel#thumbnail {{{{
+                background-color: {cls.SURFACE};
+                border: 2px solid {cls.BORDER};
+                border-radius: 6px;
+                padding: 3px;
+            }}}}
+
+            QLabel#thumbnail:hover {{{{
+                border-color: {cls.PRIMARY};
+                background-color: {cls.SURFACE_LIGHT};
+            }}}}
+
+            QLabel#thumbnail[selected="true"] {{{{
+                border: 3px solid {cls.PRIMARY};
+            }}}}
         """
+
+
+# Convenience function for getting colors directly
+def get_color(name: str) -> str:
+    """Get a color value by name from the palette."""
+    return getattr(DarkPalette, name.upper(), DarkPalette.TEXT)

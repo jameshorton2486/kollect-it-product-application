@@ -26,6 +26,7 @@ THUMBNAIL_SIZE = 150
 MAX_IMAGES = 20
 MAX_AI_IMAGES_DESCRIPTION = 5
 MAX_AI_IMAGES_VALUATION = 3
+MAX_AI_IMAGES_ANALYZE = 5
 
 # Load environment variables from .env file (if available)
 try:
@@ -59,7 +60,6 @@ from PyQt5.QtGui import (
 # pyright: reportMissingImports=false
 from modules.image_processor import ImageProcessor  # type: ignore
 from modules.imagekit_uploader import ImageKitUploader  # type: ignore
-from modules.sku_generator import SKUGenerator  # type: ignore
 from modules.sku_scanner import SKUScanner  # type: ignore
 from modules.ai_engine import AIEngine  # type: ignore
 from modules.background_remover import BackgroundRemover, check_rembg_installation, REMBG_AVAILABLE  # type: ignore
@@ -82,238 +82,6 @@ logging.basicConfig(
 logger = logging.getLogger("kollectit")
 
 
-class DarkPalette:
-    """Dark theme color palette for the application - IMPROVED READABILITY."""
-
-    # Backgrounds - slightly lighter for better contrast
-    BACKGROUND = "#1e1e2e"       # Main background (was #1a1a2e)
-    SURFACE = "#1a1a2e"          # Card/panel background (was #16213e)
-    SURFACE_LIGHT = "#252542"    # Hover states (was #1f3460)
-
-    # Primary colors
-    PRIMARY = "#e94560"          # Accent color (unchanged)
-    PRIMARY_DARK = "#c73e54"     # Darker accent (unchanged)
-    SECONDARY = "#0f3460"        # Secondary accent (unchanged)
-
-    # Text colors - IMPROVED CONTRAST
-    TEXT = "#ffffff"             # Primary text - pure white (was #eaeaea)
-    TEXT_SECONDARY = "#b4b4b4"   # Secondary text - lighter (was #a0a0a0)
-    TEXT_MUTED = "#8888a0"       # Muted/placeholder text (new)
-
-    # Borders
-    BORDER = "#3d3d5c"           # Border color - more visible (was #2d3748)
-    BORDER_FOCUS = "#e94560"     # Focus border (new)
-
-    # Status colors
-    SUCCESS = "#4ade80"          # Brighter green (was #48bb78)
-    WARNING = "#fbbf24"          # Brighter yellow (was #ed8936)
-    ERROR = "#f87171"            # Error red (was #fc8181)
-    INFO = "#60a5fa"             # Info blue (new)
-
-    @classmethod
-    def get_stylesheet(cls) -> str:
-        return f"""
-            /* ============================================
-               GLOBAL STYLES - Larger base font
-               ============================================ */
-
-            QScrollBar:horizontal {{
-                background-color: {cls.SURFACE};
-                height: 14px;
-                border-radius: 7px;
-                margin: 2px;
-            }}
-
-            QScrollBar::handle:horizontal {{
-                background-color: {cls.BORDER};
-                border-radius: 7px;
-                min-width: 40px;
-            }}
-
-            /* ============================================
-               LABELS - Text styling
-               ============================================ */
-            QLabel {{
-                color: {cls.TEXT};
-                font-size: 16px;
-            }}
-
-            QLabel.title {{
-                font-size: 30px;
-                font-weight: bold;
-                color: {cls.PRIMARY};
-            }}
-
-            QLabel.subtitle {{
-                font-size: 18px;
-                color: {cls.TEXT_SECONDARY};
-            }}
-
-            QLabel.section-header {{
-                font-size: 18px;
-                font-weight: bold;
-                color: {cls.PRIMARY};
-            }}
-
-            /* ============================================
-               CHECKBOXES
-               ============================================ */
-            QCheckBox {{
-                color: {cls.TEXT};
-                spacing: 10px;
-                font-size: 16px;
-            }}
-
-            QCheckBox::indicator {{
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
-                border: 2px solid {cls.BORDER};
-                background-color: {cls.SURFACE};
-            }}
-
-            QCheckBox::indicator:checked {{
-                background-color: {cls.PRIMARY};
-                border-color: {cls.PRIMARY};
-            }}
-
-            QCheckBox::indicator:hover {{
-                border-color: {cls.PRIMARY};
-            }}
-
-            /* ============================================
-               SLIDERS
-               ============================================ */
-            QSlider::groove:horizontal {{
-                height: 8px;
-                background-color: {cls.SURFACE};
-                border-radius: 4px;
-            }}
-
-            QSlider::handle:horizontal {{
-                width: 20px;
-                height: 20px;
-                margin: -6px 0;
-                background-color: {cls.PRIMARY};
-                border-radius: 10px;
-            }}
-
-            QSlider::handle:horizontal:hover {{
-                background-color: {cls.PRIMARY_DARK};
-            }}
-
-            QSlider::sub-page:horizontal {{
-                background-color: {cls.PRIMARY};
-                border-radius: 4px;
-            }}
-
-            /* ============================================
-               STATUS BAR
-               ============================================ */
-            QStatusBar {{
-                background-color: {cls.SURFACE};
-                color: {cls.TEXT};
-                font-size: 15px;
-                padding: 6px;
-                border-top: 1px solid {cls.BORDER};
-            }}
-
-            /* ============================================
-               MENU BAR
-               ============================================ */
-            QMenuBar {{
-                background-color: {cls.SURFACE};
-                color: {cls.TEXT};
-                padding: 6px;
-                font-size: 16px;
-            }}
-
-            QMenuBar::item {{
-                padding: 8px 14px;
-                border-radius: 4px;
-            }}
-
-            QMenuBar::item:selected {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            QMenu {{
-                background-color: {cls.SURFACE};
-                border: 2px solid {cls.BORDER};
-                border-radius: 8px;
-                padding: 6px;
-                font-size: 16px;
-            }}
-
-            QMenu::item {{
-                padding: 10px 28px;
-                border-radius: 4px;
-            }}
-
-            QMenu::item:selected {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            QMenu::separator {{
-                height: 1px;
-                background-color: {cls.BORDER};
-                margin: 6px 10px;
-            }}
-
-            /* ============================================
-               TOOLBAR
-               ============================================ */
-            QToolBar {{
-                background-color: {cls.SURFACE};
-                border: none;
-                spacing: 10px;
-                padding: 10px;
-                border-bottom: 1px solid {cls.BORDER};
-            }}
-
-            QToolBar QToolButton {{
-                background-color: transparent;
-                color: {cls.TEXT};
-                padding: 8px 14px;
-                border-radius: 6px;
-                font-size: 16px;
-            }}
-
-            QToolBar QToolButton:hover {{
-                background-color: {cls.SURFACE_LIGHT};
-            }}
-
-            /* ============================================
-               TEXT EDIT - Activity log, descriptions
-               ============================================ */
-            QTextEdit {{
-                font-size: 16px;
-                line-height: 1.5;
-            }}
-
-            /* ============================================
-               FORM LABELS - Row labels
-               ============================================ */
-            QFormLayout QLabel {{
-                font-size: 16px;
-                font-weight: 500;
-                color: {cls.TEXT_SECONDARY};
-                min-width: 90px;
-            }}
-
-            /* ============================================
-               TOOLTIPS
-               ============================================ */
-            QToolTip {{
-                background-color: {cls.SURFACE_LIGHT};
-                color: {cls.TEXT};
-                border: 1px solid {cls.BORDER};
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 15px;
-            }}
-        """
-
 
 class DropZone(QFrame):
     """Custom drag-and-drop zone for product folders."""
@@ -332,11 +100,12 @@ class DropZone(QFrame):
         self.setStyleSheet(f"""
             QFrame {{
                 background-color: {DarkPalette.SURFACE};
-                border: 2px dashed {DarkPalette.BORDER};
-                border-radius: 12px;
+                border: 3px dashed {DarkPalette.BORDER};
+                border-radius: 16px;
             }}
             QFrame:hover {{
                 border-color: {DarkPalette.PRIMARY};
+                background-color: {DarkPalette.SURFACE_LIGHT};
             }}
         """)
 
@@ -344,7 +113,7 @@ class DropZone(QFrame):
         layout.setAlignment(Qt.AlignCenter)  # type: ignore
 
         # Icon placeholder
-        icon_label = QLabel("")
+        icon_label = QLabel("📁")
         icon_label.setStyleSheet("font-size: 48px; border: none;")
         icon_label.setAlignment(Qt.AlignCenter)  # type: ignore
         layout.addWidget(icon_label)
@@ -377,13 +146,15 @@ class DropZone(QFrame):
 
         # Browse folder button
         self.browse_btn = QPushButton("Browse Folder")
-        self.browse_btn.setMaximumWidth(150)
+        self.browse_btn.setProperty("variant", "utility")
+        self.browse_btn.setMinimumWidth(130)
         self.browse_btn.clicked.connect(self.browse_folder)
         browse_layout.addWidget(self.browse_btn)
 
         # Browse files button
         self.browse_files_btn = QPushButton("Browse Files")
-        self.browse_files_btn.setMaximumWidth(150)
+        self.browse_files_btn.setProperty("variant", "utility")
+        self.browse_files_btn.setMinimumWidth(130)
         self.browse_files_btn.clicked.connect(self.browse_files)
         browse_layout.addWidget(self.browse_files_btn)
 
@@ -810,7 +581,12 @@ class KollectItApp(QMainWindow):
         """Initialize the main user interface."""
         self.setWindowTitle(f"Kollect-It Product Manager v{VERSION}")
         self.setMinimumSize(1600, 1000)
-        self.setStyleSheet(DarkPalette.get_stylesheet())
+        try:
+            self.setStyleSheet(DarkPalette.get_stylesheet())
+        except Exception as e:
+            import traceback
+            print("Failed to apply stylesheet:", e)
+            traceback.print_exc()
 
         # Central widget
         central = QWidget()
@@ -830,19 +606,22 @@ class KollectItApp(QMainWindow):
         left_layout.addWidget(self.drop_zone)
 
         # New Product button below drop zone
-        new_product_btn = QPushButton("Add New Product")
-        new_product_btn.setMinimumHeight(40)
-        new_product_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #48bb78;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: #38a169;
-            }
+        new_product_btn = QPushButton("+ Add New Product")
+        new_product_btn.setObjectName("newProductBtn")
+        new_product_btn.setProperty("variant", "secondary")
+        new_product_btn.setMinimumHeight(44)
+        new_product_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DarkPalette.SUCCESS};
+                color: #1a1b26;
+                font-size: 15px;
+                font-weight: 600;
+                border-radius: 10px;
+                padding: 12px 24px;
+            }}
+            QPushButton:hover {{
+                background-color: #7dd87d;
+            }}
         """)
         new_product_btn.clicked.connect(self.open_import_wizard)
         left_layout.addWidget(new_product_btn)
@@ -865,17 +644,23 @@ class KollectItApp(QMainWindow):
         # Image action buttons
         img_actions = QHBoxLayout()
 
-        self.crop_all_btn = QPushButton("Crop Selected")
+        self.crop_all_btn = QPushButton("✂ Crop Selected")
+        self.crop_all_btn.setObjectName("cropBtn")
+        self.crop_all_btn.setProperty("variant", "utility")
         self.crop_all_btn.setEnabled(False)
         self.crop_all_btn.clicked.connect(self.crop_selected_image)
         img_actions.addWidget(self.crop_all_btn)
 
-        self.remove_bg_btn = QPushButton("Remove Background")
+        self.remove_bg_btn = QPushButton("🎨 Remove BG")
+        self.remove_bg_btn.setObjectName("removeBgBtn")
+        self.remove_bg_btn.setProperty("variant", "utility")
         self.remove_bg_btn.setEnabled(False)
         self.remove_bg_btn.clicked.connect(self.remove_background)
         img_actions.addWidget(self.remove_bg_btn)
 
-        self.optimize_btn = QPushButton("Optimize All")
+        self.optimize_btn = QPushButton("⚡ Optimize All")
+        self.optimize_btn.setObjectName("optimizeBtn")
+        self.optimize_btn.setProperty("variant", "secondary")
         self.optimize_btn.setEnabled(False)
         self.optimize_btn.clicked.connect(self.optimize_images)
         img_actions.addWidget(self.optimize_btn)
@@ -898,7 +683,12 @@ class KollectItApp(QMainWindow):
         details_layout = QVBoxLayout(details_tab)
 
         form = QFormLayout()
-        form.setSpacing(12)
+        form.setSpacing(14)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Title
         self.title_edit = QLineEdit()
@@ -912,8 +702,8 @@ class KollectItApp(QMainWindow):
         self.sku_edit.setReadOnly(True)
         self.sku_edit.setPlaceholderText("Auto-generated")
         sku_layout.addWidget(self.sku_edit)
-        self.regenerate_sku_btn = QPushButton("Regenerate")
-        self.regenerate_sku_btn.setMaximumWidth(40)
+        self.regenerate_sku_btn = QPushButton("↻")
+        self.regenerate_sku_btn.setFixedWidth(80)
         self.regenerate_sku_btn.clicked.connect(self.regenerate_sku)
         sku_layout.addWidget(self.regenerate_sku_btn)
         form.addRow("SKU:", sku_layout)
@@ -979,14 +769,25 @@ class KollectItApp(QMainWindow):
         desc_layout.addWidget(self.description_edit)
 
         ai_btn_layout = QHBoxLayout()
-        self.generate_desc_btn = QPushButton("Generate with AI")
+        self.analyze_images_btn = QPushButton("🔎 Analyze Images")
+        self.analyze_images_btn.setObjectName("analyzeImagesBtn")
+        self.analyze_images_btn.setProperty("variant", "utility")
+        self.analyze_images_btn.clicked.connect(self.analyze_and_autofill)
+        ai_btn_layout.addWidget(self.analyze_images_btn)
+        self.generate_desc_btn = QPushButton("✨ Generate with AI")
+        self.generate_desc_btn.setObjectName("generateDescBtn")
+        self.generate_desc_btn.setProperty("variant", "secondary")
         self.generate_desc_btn.clicked.connect(self.generate_description)
         ai_btn_layout.addWidget(self.generate_desc_btn)
 
-        self.generate_valuation_btn = QPushButton("Price Research")
+        self.generate_valuation_btn = QPushButton("💰 Price Research")
+        self.generate_valuation_btn.setObjectName("generateValuationBtn")
+        self.generate_valuation_btn.setProperty("variant", "secondary")
         self.generate_valuation_btn.clicked.connect(self.generate_valuation)
         ai_btn_layout.addWidget(self.generate_valuation_btn)
+        ai_btn_layout.setSpacing(10)
         desc_layout.addLayout(ai_btn_layout)
+        desc_layout.addSpacing(6)
 
         details_layout.addWidget(desc_group)
         tabs.addTab(details_tab, "Product Details")
@@ -994,7 +795,12 @@ class KollectItApp(QMainWindow):
         # SEO Tab
         seo_tab = QWidget()
         seo_layout = QFormLayout(seo_tab)
-        seo_layout.setSpacing(12)
+        seo_layout.setSpacing(14)
+        seo_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        seo_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        seo_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        seo_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        seo_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         self.seo_title_edit = QLineEdit()
         self.seo_title_edit.setPlaceholderText("SEO-optimized title")
@@ -1014,7 +820,12 @@ class KollectItApp(QMainWindow):
         # Settings Tab
         settings_tab = QWidget()
         settings_layout = QFormLayout(settings_tab)
-        settings_layout.setSpacing(12)
+        settings_layout.setSpacing(14)
+        settings_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        settings_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        settings_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        settings_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        settings_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         self.bg_removal_check = QCheckBox("Enable AI Background Removal")
         self.bg_removal_check.setChecked(
@@ -1050,24 +861,19 @@ class KollectItApp(QMainWindow):
         # Action buttons
         actions_layout = QHBoxLayout()
 
-        self.upload_btn = QPushButton("Upload to ImageKit")
+        self.upload_btn = QPushButton("☁ Upload to ImageKit")
+        self.upload_btn.setObjectName("uploadBtn")
+        self.upload_btn.setProperty("variant", "secondary")
         self.upload_btn.setEnabled(False)
         self.upload_btn.clicked.connect(self.upload_to_imagekit)
         actions_layout.addWidget(self.upload_btn)
 
-        self.export_btn = QPushButton("Export Package")
+        self.export_btn = QPushButton("📦 Export Package")
+        self.export_btn.setObjectName("exportBtn")
+        self.export_btn.setProperty("variant", "primary")
         self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self.export_package)
-        self.export_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DarkPalette.PRIMARY};
-                font-size: 15px;
-                padding: 14px 28px;
-            }}
-            QPushButton:hover {{
-                background-color: {DarkPalette.PRIMARY_DARK};
-            }}
-        """)
+        # Inline export_btn stylesheet removed; handled by theme via object name
         actions_layout.addWidget(self.export_btn)
 
         right_layout.addLayout(actions_layout)
@@ -1077,15 +883,10 @@ class KollectItApp(QMainWindow):
         log_layout = QVBoxLayout(log_group)
 
         self.log_output = QTextEdit()
+        self.log_output.setObjectName("activityLog")
         self.log_output.setReadOnly(True)
         self.log_output.setMaximumHeight(150)
-        self.log_output.setStyleSheet(f"""
-            QTextEdit {{
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 14px;
-                background-color: {DarkPalette.BACKGROUND};
-            }}
-        """)
+        # Inline log_output stylesheet removed; handled by theme via object name
         log_layout.addWidget(self.log_output)
 
         right_layout.addWidget(log_group)
@@ -1360,8 +1161,22 @@ class KollectItApp(QMainWindow):
         """Open crop dialog for an image."""
         dialog = CropDialog(image_path, self, config=self.config)
         if dialog.exec_() == QDialog.Accepted:
-            _cropped_path = dialog.get_cropped_path()  # Path is used implicitly by reload
+            _cropped_path = dialog.get_cropped_path()
             self.log(f"Cropped: {os.path.basename(image_path)}", "success")
+
+            # If the crop produced a file in a 'processed' subfolder,
+            # switch the view there so the user immediately sees results.
+            try:
+                if _cropped_path:
+                    from pathlib import Path as _P
+                    _out = _P(_cropped_path)
+                    if _out.exists() and _out.parent.name.lower() == "processed":
+                        self.load_images_from_folder(str(_out.parent))
+                        return
+            except Exception:
+                # Fall back to reloading current folder
+                pass
+
             self.load_images_from_folder(self.current_folder)
 
     def crop_selected_image(self):
@@ -1527,6 +1342,123 @@ class KollectItApp(QMainWindow):
         self.optimize_btn.setEnabled(True)
         self.log(f"Processing error: {error}", "error")
         self.status_label.setText("Error during processing")
+
+    def analyze_and_autofill(self):
+        """Use AI to analyze images and autofill product fields."""
+        if not self.current_images:
+            QMessageBox.warning(self, "No Images", "Load a product folder first.")
+            return
+
+        try:
+            self.log("Analyzing images to suggest fields...", "info")
+            self.status_label.setText("AI analyzing images...")
+
+            engine = AIEngine(self.config)
+            images = self.current_images[:MAX_AI_IMAGES_ANALYZE]
+
+            product_data = {
+                "title": self.title_edit.text(),
+                "condition": self.condition_combo.currentText(),
+                "era": self.era_edit.text(),
+                "origin": self.origin_edit.text(),
+                "images": images,
+            }
+
+            categories = self.config.get("categories", {})
+            result = engine.suggest_fields(product_data, categories)
+
+            if not result:
+                self.log("AI analysis returned no data", "warning")
+                self.status_label.setText("Ready")
+                return
+
+            # Title
+            if result.get("title"):
+                self.title_edit.setText(result["title"])
+
+            # Category mapping
+            cat_id = result.get("category_id")
+            if cat_id:
+                idx = self.category_combo.findData(cat_id)
+                if idx >= 0:
+                    self.category_combo.setCurrentIndex(idx)
+                    # ensure subcategories are refreshed
+                    self.on_category_changed()
+                else:
+                    self.log(f"AI suggested category '{cat_id}' not found in config; keeping current.", "warning")
+
+            # Subcategory
+            subc = result.get("subcategory")
+            if subc:
+                idx = self.subcategory_combo.findText(subc)
+                if idx >= 0:
+                    self.subcategory_combo.setCurrentIndex(idx)
+                else:
+                    # If not present, add it temporarily for convenience
+                    self.subcategory_combo.insertItem(0, subc)
+                    self.subcategory_combo.setCurrentIndex(0)
+
+            # Condition
+            cond = result.get("condition")
+            if cond:
+                idx = self.condition_combo.findText(cond)
+                if idx >= 0:
+                    self.condition_combo.setCurrentIndex(idx)
+                else:
+                    self.condition_combo.insertItem(0, cond)
+                    self.condition_combo.setCurrentIndex(0)
+
+            # Era & Origin
+            if result.get("era"):
+                self.era_edit.setText(result["era"])
+            if result.get("origin"):
+                self.origin_edit.setText(result["origin"])
+
+            # Description & SEO
+            if result.get("description"):
+                self.description_edit.setPlainText(result["description"])
+            if result.get("seo_title"):
+                self.seo_title_edit.setText(result["seo_title"])
+            if result.get("seo_description"):
+                self.seo_desc_edit.setPlainText(result["seo_description"])
+            if result.get("keywords") and isinstance(result["keywords"], list):
+                self.seo_keywords_edit.setText(", ".join(result["keywords"]))
+
+            # Valuation -> suggest price (user can adjust)
+            val = result.get("valuation") or {}
+            rec_price = val.get("recommended")
+            if isinstance(rec_price, (int, float)) and rec_price > 0:
+                try:
+                    self.price_spin.setValue(float(rec_price))
+                except Exception:
+                    pass
+                self.last_valuation = {
+                    "low": val.get("low"),
+                    "high": val.get("high"),
+                    "recommended": rec_price,
+                    "confidence": val.get("confidence", ""),
+                    "notes": val.get("notes", "")
+                }
+                self.log(
+                    f"AI suggested price range: ${val.get('low', 0):,.2f} - ${val.get('high', 0):,.2f} (Rec: ${rec_price:,.2f})",
+                    "info"
+                )
+
+            self.update_export_button_state()
+            self.status_label.setText("Ready")
+            self.log("Fields autofilled from images", "success")
+
+        except ValueError as ve:
+            # Likely missing API key
+            QMessageBox.critical(
+                self,
+                "AI Configuration",
+                f"{ve}\n\nSet ANTHROPIC_API_KEY in desktop-app/.env and restart."
+            )
+            self.status_label.setText("Ready")
+        except Exception as e:
+            self.log(f"AI analyze error: {e}", "error")
+            self.status_label.setText("Ready")
 
     def generate_description(self):
         """Generate product description using AI."""
@@ -1985,10 +1917,12 @@ class KollectItApp(QMainWindow):
         btn_layout.addStretch()
 
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setProperty("variant", "utility")
         cancel_btn.clicked.connect(dialog.reject)
         btn_layout.addWidget(cancel_btn)
 
         save_btn = QPushButton("Save")
+        save_btn.setProperty("variant", "primary")
         save_btn.clicked.connect(lambda: self.save_settings_from_dialog(dialog))
         btn_layout.addWidget(save_btn)
 
@@ -2096,11 +2030,6 @@ def main():
     """Application entry point."""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-
-    # Increase global font size by 4 points for better readability
-    font = app.font()
-    font.setPointSize(font.pointSize() + 4)
-    app.setFont(font)
 
     # Set application info
     app.setApplicationName("Kollect-It Product Manager")
