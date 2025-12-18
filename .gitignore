@@ -88,3 +88,11 @@ desktop-app/logs/*.log
 
 desktop-app/processed/
 desktop-app/temp/
+config/config.json
+config/sku_state.json
+config/user_preferences.json
+
+# User-specific config files
+config/config.json
+config/sku_state.json
+config/user_preferences.json
