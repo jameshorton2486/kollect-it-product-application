@@ -32,7 +32,11 @@ class OutputGenerator:
             config.get("paths", {}).get("products_root", r"G:\My Drive\Kollect-It\Products")
         )
     
-    def export_package(self, product_data: Dict[str, Any]) -> Dict[str, Any]:
+    def export_package(
+        self, 
+        product_data: Dict[str, Any], 
+        output_path: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Export a complete product package to files.
         
@@ -44,6 +48,8 @@ class OutputGenerator:
                 - images (list of dicts with url, alt, order)
                 - seoTitle, seoDescription, seoKeywords
                 - last_valuation (optional)
+            output_path: Optional path to output folder. If not provided,
+                        uses products_root/prefix/sku structure.
         
         Returns:
             Dictionary with:
@@ -62,12 +68,16 @@ class OutputGenerator:
                     "error": "SKU and category are required"
                 }
             
-            # Get category prefix from SKU
-            prefix = sku.split("-")[0] if "-" in sku else ""
-            
-            # Determine output folder structure
-            category_folder = self.products_root / prefix
-            product_folder = category_folder / sku
+            # Determine output folder
+            if output_path:
+                product_folder = Path(output_path)
+            else:
+                # Get category prefix from SKU
+                prefix = sku.split("-")[0] if "-" in sku else ""
+                
+                # Determine output folder structure
+                category_folder = self.products_root / prefix
+                product_folder = category_folder / sku
             
             # Create folders
             product_folder.mkdir(parents=True, exist_ok=True)
@@ -183,6 +193,16 @@ class OutputGenerator:
                 lines.append(f"   {url}")
             lines.append("")
         
+        # Add Google Drive location if available
+        if product_data.get('google_drive_folder'):
+            lines.append("-" * 60)
+            lines.append("FILE LOCATIONS")
+            lines.append("-" * 60)
+            lines.append(f"Google Drive: {product_data.get('google_drive_folder')}")
+            if product_data.get('imagekit_folder'):
+                lines.append(f"ImageKit: {product_data.get('imagekit_folder')}")
+            lines.append("")
+        
         lines.append("=" * 60)
         lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("=" * 60)
@@ -208,6 +228,8 @@ class OutputGenerator:
             "materials": product_data.get("materials", []),
             "dimensions": product_data.get("dimensions", {}),
             "images": product_data.get("images", []),
+            "imagekit_folder": product_data.get("imagekit_folder"),
+            "google_drive_folder": product_data.get("google_drive_folder"),
             "seoTitle": product_data.get("seoTitle", product_data.get("title", "")),
             "seoDescription": product_data.get("seoDescription", product_data.get("description", "")[:160]),
             "seoKeywords": product_data.get("seoKeywords", []),

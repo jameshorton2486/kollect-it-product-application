@@ -7,6 +7,7 @@ Handles importing photos from camera to product folders with SKU generation.
 import os
 import re
 import shutil
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Tuple
@@ -22,7 +23,10 @@ from PyQt5.QtGui import QPixmap, QImage, QFont, QIcon
 
 from PIL import Image, ImageOps
 from io import BytesIO
-from .theme_modern import ModernPalette
+
+
+# Supported image extensions (lowercase for comparison)
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif', '.bmp', '.cr2', '.nef', '.arw'}
 
 
 class CategoryButton(QPushButton):
@@ -43,29 +47,29 @@ class CategoryButton(QPushButton):
     def update_style(self, selected: bool):
         """Update button style based on selection state."""
         if selected:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {ModernPalette.PRIMARY};
-                    color: #181926;
-                    border: 2px solid {ModernPalette.PRIMARY};
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #e94560;
+                    color: white;
+                    border: 2px solid #e94560;
                     border-radius: 8px;
                     padding: 10px;
-                }}
+                }
             """)
         else:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {ModernPalette.SURFACE_LIGHT};
-                    color: {ModernPalette.TEXT_SECONDARY};
-                    border: 2px solid {ModernPalette.BORDER};
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #16213e;
+                    color: #a0a0a0;
+                    border: 2px solid #2d3748;
                     border-radius: 8px;
                     padding: 10px;
-                }}
-                QPushButton:hover {{
-                    background-color: {ModernPalette.BTN_SECONDARY_HOVER};
-                    border-color: {ModernPalette.PRIMARY};
-                    color: {ModernPalette.TEXT};
-                }}
+                }
+                QPushButton:hover {
+                    background-color: #1f3460;
+                    border-color: #e94560;
+                    color: white;
+                }
             """)
 
 
@@ -92,11 +96,11 @@ class PhotoThumbnail(QFrame):
         self.image_label.setFixedSize(188, 200)
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setScaledContents(True)  # Scale image to fit
-        self.image_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {ModernPalette.BACKGROUND};
+        self.image_label.setStyleSheet("""
+            QLabel {
+                background-color: #0f0f1a;
                 border-radius: 4px;
-            }}
+            }
         """)
         layout.addWidget(self.image_label)
 
@@ -106,7 +110,7 @@ class PhotoThumbnail(QFrame):
             filename = filename[:17] + "..."
         self.name_label = QLabel(filename)
         self.name_label.setAlignment(Qt.AlignCenter)
-        self.name_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY}; font-size: 14px;")
+        self.name_label.setStyleSheet("color: #a0a0a0; font-size: 14px;")
         self.name_label.setWordWrap(True)
         layout.addWidget(self.name_label)
 
@@ -133,7 +137,6 @@ class PhotoThumbnail(QFrame):
         try:
             with Image.open(self.file_path) as img:
                 # Auto-rotate based on EXIF orientation
-                from PIL import ImageOps
                 img = ImageOps.exif_transpose(img)
 
                 # Convert to RGB if needed
@@ -152,9 +155,7 @@ class PhotoThumbnail(QFrame):
                 # Keep aspect ratio, scale to fit 188x200
                 img.thumbnail((188, 200), Image.Resampling.LANCZOS)
 
-                # Convert PIL Image to QPixmap
-                # Method 1: Save to bytes and load (more reliable)
-                from io import BytesIO
+                # Convert PIL Image to QPixmap via bytes (most reliable)
                 buffer = BytesIO()
                 img.save(buffer, format='PNG')
                 buffer.seek(0)
@@ -176,7 +177,7 @@ class PhotoThumbnail(QFrame):
         except Exception as e:
             self.image_label.clear()
             self.image_label.setText("Error\nLoading")
-            self.image_label.setStyleSheet(f"color: {ModernPalette.ERROR}; font-size: 14px;")
+            self.image_label.setStyleSheet("color: #fc8181; font-size: 14px; background-color: #0f0f1a;")
             print(f"Error loading thumbnail for {self.file_path}: {e}")
 
     def mousePressEvent(self, event):
@@ -202,23 +203,23 @@ class PhotoThumbnail(QFrame):
     def update_style(self):
         """Update frame style based on selection."""
         if self.selected:
-            self.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {ModernPalette.SURFACE_LIGHT};
-                    border: 2px solid {ModernPalette.PRIMARY};
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #1f3460;
+                    border: 2px solid #e94560;
                     border-radius: 8px;
-                }}
+                }
             """)
         else:
-            self.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {ModernPalette.SURFACE};
-                    border: 2px solid {ModernPalette.BORDER};
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #16213e;
+                    border: 2px solid #2d3748;
                     border-radius: 8px;
-                }}
-                QFrame:hover {{
-                    border-color: {ModernPalette.TEXT_MUTED};
-                }}
+                }
+                QFrame:hover {
+                    border-color: #4a5568;
+                }
             """)
 
 
@@ -244,13 +245,61 @@ class ImportWizard(QDialog):
         self.selected_photos = []
         self.generated_sku = None
         self.target_folder = None
+        self.photo_thumbnails = []
 
         self.setWindowTitle("Add New Product")
         self.setMinimumSize(800, 700)
         self.setModal(True)
 
-        # Apply Modern Theme
-        self.setStyleSheet(ModernPalette.get_stylesheet())
+        # Apply dark theme
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #1a1a2e;
+                color: #eaeaea;
+            }
+            QLabel {
+                color: #eaeaea;
+            }
+            QLineEdit {
+                background-color: #16213e;
+                border: 1px solid #2d3748;
+                border-radius: 6px;
+                padding: 10px;
+                color: #eaeaea;
+                font-size: 16px;
+            }
+            QLineEdit:focus {
+                border-color: #e94560;
+            }
+            QPushButton {
+                background-color: #e94560;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c73e54;
+            }
+            QPushButton:disabled {
+                background-color: #2d3748;
+                color: #6b7280;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #2d3748;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 10px;
+                color: #e94560;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+            }
+        """)
 
         self.setup_ui()
         self.load_photos()
@@ -264,7 +313,7 @@ class ImportWizard(QDialog):
         # Title
         title = QLabel("📦 Add New Product")
         title.setFont(QFont("Segoe UI", 22, QFont.Bold))
-        title.setStyleSheet(f"color: {ModernPalette.PRIMARY};")
+        title.setStyleSheet("color: #e94560;")
         layout.addWidget(title)
 
         # Step 1: Category Selection
@@ -305,12 +354,12 @@ class ImportWizard(QDialog):
 
         preview_layout.addWidget(QLabel("SKU:"), 0, 0)
         self.sku_label = QLabel("—")
-        self.sku_label.setStyleSheet(f"color: {ModernPalette.SUCCESS}; font-weight: bold; font-size: 18px;")
+        self.sku_label.setStyleSheet("color: #48bb78; font-weight: bold; font-size: 18px;")
         preview_layout.addWidget(self.sku_label, 0, 1)
 
         preview_layout.addWidget(QLabel("Folder:"), 1, 0)
         self.folder_label = QLabel("—")
-        self.folder_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY}; font-size: 14px;")
+        self.folder_label.setStyleSheet("color: #a0a0a0; font-size: 14px;")
         self.folder_label.setWordWrap(True)
         preview_layout.addWidget(self.folder_label, 1, 1)
 
@@ -323,25 +372,41 @@ class ImportWizard(QDialog):
         # Source folder info
         source_layout = QHBoxLayout()
         source_label = QLabel("Source:")
-        source_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY};")
+        source_label.setStyleSheet("color: #a0a0a0;")
         source_layout.addWidget(source_label)
 
-        # Use Windows path format with backslashes
-        camera_path = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
-        # Normalize path separators for display
-        camera_path_display = camera_path.replace("/", "\\")
-        self.source_path_label = QLabel(camera_path_display)
-        self.source_path_label.setStyleSheet(f"color: {ModernPalette.TEXT};")
+        # Default camera path
+        camera_path = self._get_camera_path()
+        self.source_path_label = QLabel(camera_path)
+        self.source_path_label.setStyleSheet("color: #eaeaea;")
         source_layout.addWidget(self.source_path_label)
         source_layout.addStretch()
 
         self.change_source_btn = QPushButton("Browse Folder...")
-        self.change_source_btn.setProperty("variant", "utility")
+        self.change_source_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #16213e;
+                border: 1px solid #2d3748;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #1f3460;
+            }
+        """)
         self.change_source_btn.clicked.connect(self.change_source_folder)
         source_layout.addWidget(self.change_source_btn)
 
         self.select_photos_btn = QPushButton("Select Photos...")
-        self.select_photos_btn.setProperty("variant", "utility")
+        self.select_photos_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #16213e;
+                border: 1px solid #2d3748;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #1f3460;
+            }
+        """)
         self.select_photos_btn.clicked.connect(self.select_individual_photos)
         source_layout.addWidget(self.select_photos_btn)
 
@@ -351,19 +416,31 @@ class ImportWizard(QDialog):
         sel_layout = QHBoxLayout()
 
         self.select_all_btn = QPushButton("Select All")
-        self.select_all_btn.setProperty("variant", "utility")
+        self.select_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #16213e;
+                border: 1px solid #2d3748;
+                padding: 6px 12px;
+            }
+        """)
         self.select_all_btn.clicked.connect(self.select_all_photos)
         sel_layout.addWidget(self.select_all_btn)
 
         self.select_none_btn = QPushButton("Select None")
-        self.select_none_btn.setProperty("variant", "utility")
+        self.select_none_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #16213e;
+                border: 1px solid #2d3748;
+                padding: 6px 12px;
+            }
+        """)
         self.select_none_btn.clicked.connect(self.select_no_photos)
         sel_layout.addWidget(self.select_none_btn)
 
         sel_layout.addStretch()
 
         self.selected_count_label = QLabel("0 photos selected")
-        self.selected_count_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY};")
+        self.selected_count_label.setStyleSheet("color: #a0a0a0;")
         sel_layout.addWidget(self.selected_count_label)
 
         photo_layout.addLayout(sel_layout)
@@ -372,12 +449,12 @@ class ImportWizard(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(400)  # Increased height for large icons
-        scroll.setStyleSheet(f"""
-            QScrollArea {{
-                border: 1px solid {ModernPalette.BORDER};
+        scroll.setStyleSheet("""
+            QScrollArea {
+                border: 1px solid #2d3748;
                 border-radius: 6px;
-                background-color: {ModernPalette.SURFACE};
-            }}
+                background-color: #0f0f1a;
+            }
         """)
 
         self.photo_grid_widget = QWidget()
@@ -393,7 +470,15 @@ class ImportWizard(QDialog):
         btn_layout = QHBoxLayout()
 
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setProperty("variant", "utility")
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #16213e;
+                border: 1px solid #2d3748;
+            }
+            QPushButton:hover {
+                background-color: #1f3460;
+            }
+        """)
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
 
@@ -403,10 +488,15 @@ class ImportWizard(QDialog):
         self.import_btn.setEnabled(False)
         self.import_btn.setMinimumWidth(150)
         self.import_btn.clicked.connect(self.do_import)
-        self.import_btn.setProperty("variant", "primary")
         btn_layout.addWidget(self.import_btn)
 
         layout.addLayout(btn_layout)
+
+    def _get_camera_path(self) -> str:
+        """Get camera import path from config with fallback."""
+        path = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
+        # Normalize to Windows format
+        return path.replace("/", "\\")
 
     def on_category_selected(self, category_id: str):
         """Handle category button selection."""
@@ -450,13 +540,7 @@ class ImportWizard(QDialog):
         self.validate_form()
 
     def get_next_sku_number(self, prefix: str) -> int:
-        """
-        Scan existing folders to determine next SKU number.
-
-        Scans: G:/My Drive/Kollect-It/Products/{PREFIX}/
-        Finds highest: PREFIX-YYYY-NNNN
-        Returns: NNNN + 1
-        """
+        """Scan existing folders to determine next SKU number."""
         products_root = self.config.get("paths", {}).get("products_root", "G:/My Drive/Kollect-It/Products")
         cat_folder = self.config.get("paths", {}).get("category_folders", {}).get(
             self.selected_category, prefix
@@ -484,7 +568,7 @@ class ImportWizard(QDialog):
 
         return max_num + 1
 
-    def load_photos(self):
+    def load_photos(self, folder_path: str = None):
         """Load photos from camera folder."""
         # Clear existing thumbnails
         while self.photo_grid.count():
@@ -495,52 +579,55 @@ class ImportWizard(QDialog):
         self.photo_thumbnails = []
         self.selected_photos = []
 
-        # Use Windows path format with backslashes
-        camera_path = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
-        # Normalize path separators for display
-        camera_path_display = camera_path.replace("/", "\\")
-        self.source_path_label.setText(camera_path_display)
+        # Use provided path or get from config
+        if folder_path:
+            camera_path = folder_path
+        else:
+            camera_path = self._get_camera_path()
+
+        self.source_path_label.setText(camera_path)
 
         folder = Path(camera_path)
 
-        # If folder doesn't exist, try parent directory
-        if not folder.exists():
-            if folder.parent.exists():
-                folder = folder.parent
-                camera_path = str(folder)
-                self.source_path_label.setText(f"{camera_path} (parent folder)")
-            else:
-                no_folder = QLabel(
-                    f"Camera folder not found:\n{camera_path}\n\n"
-                    f"Please use 'Browse Folder' or 'Select Photos' to choose a location."
-                )
-                no_folder.setAlignment(Qt.AlignCenter)
-                no_folder.setStyleSheet(f"color: {ModernPalette.ERROR}; padding: 40px; font-size: 14px;")
-                self.photo_grid.addWidget(no_folder, 0, 0)
-                return
+        # Debug output
+        print(f"[ImportWizard] Loading photos from: {folder}")
+        print(f"[ImportWizard] Folder exists: {folder.exists()}")
 
-        # Find image files (including JPG which is the camera format)
-        extensions = {'.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp', '.cr2', '.nef', '.arw', '.JPG', '.JPEG'}
+        # If folder doesn't exist, show message
+        if not folder.exists():
+            no_folder = QLabel(
+                f"Camera folder not found:\n{camera_path}\n\n"
+                f"Please use 'Browse Folder' or 'Select Photos' to choose a location."
+            )
+            no_folder.setAlignment(Qt.AlignCenter)
+            no_folder.setStyleSheet("color: #fc8181; padding: 40px; font-size: 14px;")
+            self.photo_grid.addWidget(no_folder, 0, 0)
+            return
+
+        # Find image files
         images = []
 
         try:
             for f in folder.iterdir():
                 # Skip directories (like "processed" folder)
-                if f.is_file() and f.suffix.lower() in extensions:
+                if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS:
                     images.append(f)
+                    
+            print(f"[ImportWizard] Found {len(images)} images")
+            
         except PermissionError as e:
             error_label = QLabel(
                 f"Permission denied accessing folder:\n{camera_path}\n\n"
                 f"Please check folder permissions or select a different location."
             )
             error_label.setAlignment(Qt.AlignCenter)
-            error_label.setStyleSheet(f"color: {ModernPalette.ERROR}; padding: 40px; font-size: 14px;")
+            error_label.setStyleSheet("color: #fc8181; padding: 40px; font-size: 14px;")
             self.photo_grid.addWidget(error_label, 0, 0)
             return
         except Exception as e:
             error_label = QLabel(f"Error reading folder:\n{str(e)}")
             error_label.setAlignment(Qt.AlignCenter)
-            error_label.setStyleSheet(f"color: {ModernPalette.ERROR}; padding: 40px; font-size: 14px;")
+            error_label.setStyleSheet("color: #fc8181; padding: 40px; font-size: 14px;")
             self.photo_grid.addWidget(error_label, 0, 0)
             return
 
@@ -550,12 +637,12 @@ class ImportWizard(QDialog):
         if not images:
             no_photos = QLabel(
                 f"No photos found in:\n{camera_path}\n\n"
-                f"Supported formats: JPG, JPEG, PNG, TIFF, BMP, CR2, NEF, ARW\n\n"
+                f"Supported formats: JPG, JPEG, PNG, WebP, TIFF, BMP, CR2, NEF, ARW\n\n"
                 f"Use 'Browse Folder' to select a different folder,\n"
                 f"or 'Select Photos' to choose individual files."
             )
             no_photos.setAlignment(Qt.AlignCenter)
-            no_photos.setStyleSheet(f"color: {ModernPalette.TEXT_MUTED}; padding: 40px; font-size: 14px;")
+            no_photos.setStyleSheet("color: #a0a0a0; padding: 40px; font-size: 14px;")
             self.photo_grid.addWidget(no_photos, 0, 0)
             return
 
@@ -577,46 +664,48 @@ class ImportWizard(QDialog):
 
     def change_source_folder(self):
         """Open dialog to change source folder."""
-        from PyQt5.QtWidgets import QFileDialog
+        # Get current path
+        current = self._get_camera_path()
 
-        # Get current path, normalize to Windows format
-        current = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
-        current = current.replace("/", "\\")
-
-        # Ensure the path exists, if not use parent directory
+        # Ensure the path exists, if not use E:\ or home
         current_path = Path(current)
-        if not current_path.exists() and current_path.parent.exists():
-            current = str(current_path.parent)
+        if not current_path.exists():
+            if Path("E:\\").exists():
+                current = "E:\\"
+            else:
+                current = str(Path.home())
 
+        # Use native dialog
         folder = QFileDialog.getExistingDirectory(
-            self, "Select Camera/Source Folder",
-            current, QFileDialog.ShowDirsOnly
+            self, 
+            "Select Camera/Source Folder",
+            current
         )
 
         if folder:
-            # Update config temporarily (store with backslashes for Windows)
+            # Update config temporarily
             if "paths" not in self.config:
                 self.config["paths"] = {}
             self.config["paths"]["camera_import"] = folder.replace("/", "\\")
 
             # Reload photos
-            self.load_photos()
+            self.load_photos(folder)
 
     def select_individual_photos(self):
         """Open file dialog to select individual photos."""
-        from PyQt5.QtWidgets import QFileDialog
+        # Get default directory
+        default_dir = self._get_camera_path()
 
-        # Get default directory from config
-        default_dir = self.config.get("paths", {}).get("camera_import", "E:\\DCIM\\100CANON")
-        default_dir = default_dir.replace("/", "\\")
-
-        # Ensure the path exists, if not use parent directory
+        # Ensure the path exists
         default_path = Path(default_dir)
-        if not default_path.exists() and default_path.parent.exists():
-            default_dir = str(default_path.parent)
+        if not default_path.exists():
+            if Path("E:\\").exists():
+                default_dir = "E:\\"
+            else:
+                default_dir = str(Path.home())
 
         # Open file dialog for multiple image selection
-        file_filter = "Image Files (*.jpg *.jpeg *.png *.tiff *.tif *.bmp *.cr2 *.nef *.arw);;All Files (*.*)"
+        file_filter = "Image Files (*.jpg *.jpeg *.png *.webp *.tiff *.tif *.bmp *.cr2 *.nef *.arw);;All Files (*.*)"
         files, _ = QFileDialog.getOpenFileNames(
             self,
             "Select Photos to Import",
@@ -720,11 +809,11 @@ class ImportWizard(QDialog):
         progress = QProgressDialog("Importing photos...", "Cancel", 0, len(self.selected_photos) + 2, self)
         progress.setWindowModality(Qt.WindowModal)
         progress.setWindowTitle("Importing")
-        progress.setStyleSheet(f"""
-            QProgressDialog {{
-                background-color: {ModernPalette.BACKGROUND};
-                color: {ModernPalette.TEXT};
-            }}
+        progress.setStyleSheet("""
+            QProgressDialog {
+                background-color: #1a1a2e;
+                color: #eaeaea;
+            }
         """)
         progress.show()
 
@@ -775,7 +864,6 @@ class ImportWizard(QDialog):
             }
 
             metadata_file = self.target_folder / "product_info.json"
-            import json
             with open(metadata_file, 'w') as f:
                 json.dump(metadata, f, indent=2)
 
