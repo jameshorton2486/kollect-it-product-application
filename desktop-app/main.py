@@ -16,13 +16,13 @@ Features:
 import sys
 import os
 import json
+import requests
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 VERSION = "1.0.0"
 IMAGE_GRID_COLUMNS = 4
-THUMBNAIL_SIZE = 150
 MAX_IMAGES = 20
 MAX_AI_IMAGES_DESCRIPTION = 10  # Increased from 5 for richer context
 MAX_AI_IMAGES_VALUATION = 5     # Increased from 3 for valuation context
@@ -46,14 +46,15 @@ from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QFileDialog, QMessageBox,
     QGroupBox, QFormLayout, QSplitter, QFrame, QScrollArea,
     QSlider, QDialog, QDialogButtonBox, QToolBar, QAction,
-    QStatusBar, QMenuBar, QMenu, QGridLayout, QSizePolicy
+    QStatusBar, QMenuBar, QMenu, QGridLayout, QSizePolicy,
+    QShortcut
 )
 from PyQt5.QtCore import (
     Qt, QThread, pyqtSignal, QUrl, QMimeData, QSize, QTimer
 )
 from PyQt5.QtGui import (
     QPixmap, QImage, QIcon, QFont, QPalette, QColor,
-    QDragEnterEvent, QDropEvent, QPainter, QPen
+    QDragEnterEvent, QDropEvent, QPainter, QPen, QKeySequence
 )
 
 # Import custom modules
@@ -67,7 +68,8 @@ from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
 from modules.output_generator import OutputGenerator  # type: ignore
 from modules.config_validator import ConfigValidator  # type: ignore
-from modules.theme_clean import DarkPalette  # type: ignore
+from modules.theme_modern import ModernPalette  # type: ignore
+from modules.widgets import DropZone, ImageThumbnail # type: ignore
 import logging
 from pathlib import Path as _Path
 
@@ -80,276 +82,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s %(message)s'
 )
 logger = logging.getLogger("kollectit")
-
-
-
-class DropZone(QFrame):
-    """Custom drag-and-drop zone for product folders."""
-
-    folder_dropped = pyqtSignal(str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.browse_btn = None  # Initialize attribute
-        self.browse_files_btn = None  # Initialize attribute for new button
-        self.setAcceptDrops(True)
-        self.setMinimumHeight(200)
-        self.setup_ui()
-
-    def setup_ui(self):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DarkPalette.SURFACE};
-                border: 3px dashed {DarkPalette.BORDER};
-                border-radius: 16px;
-            }}
-            QFrame:hover {{
-                border-color: {DarkPalette.PRIMARY};
-                background-color: {DarkPalette.SURFACE_LIGHT};
-            }}
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)  # type: ignore
-
-        # Icon placeholder
-        icon_label = QLabel("📁")
-        icon_label.setStyleSheet("font-size: 48px; border: none;")
-        icon_label.setAlignment(Qt.AlignCenter)  # type: ignore
-        layout.addWidget(icon_label)
-
-        # Main text
-        main_text = QLabel("Drag & Drop Product Folder Here")
-        main_text.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-size: 20px;
-                font-weight: bold;
-            }
-        """)
-        main_text.setAlignment(Qt.AlignCenter)  # type: ignore
-        layout.addWidget(main_text)
-
-        # Sub text
-        sub_text = QLabel("or click Browse to select folder/files")
-        sub_text.setStyleSheet("""
-            QLabel {
-                color: #b4b4b4;
-                font-size: 16px;
-            }
-        """)
-        sub_text.setAlignment(Qt.AlignCenter)  # type: ignore
-        layout.addWidget(sub_text)
-
-        # Browse buttons container
-        browse_layout = QHBoxLayout()
-
-        # Browse folder button
-        self.browse_btn = QPushButton("Browse Folder")
-        self.browse_btn.setProperty("variant", "utility")
-        self.browse_btn.setMinimumWidth(130)
-        self.browse_btn.clicked.connect(self.browse_folder)
-        browse_layout.addWidget(self.browse_btn)
-
-        # Browse files button
-        self.browse_files_btn = QPushButton("Browse Files")
-        self.browse_files_btn.setProperty("variant", "utility")
-        self.browse_files_btn.setMinimumWidth(130)
-        self.browse_files_btn.clicked.connect(self.browse_files)
-        browse_layout.addWidget(self.browse_files_btn)
-
-        # Add browse buttons layout to main layout
-        browse_container = QWidget()
-        browse_container.setLayout(browse_layout)
-        layout.addWidget(browse_container, alignment=Qt.AlignCenter)  # type: ignore
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-            self.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {DarkPalette.SURFACE_LIGHT};
-                    border: 2px dashed {DarkPalette.PRIMARY};
-                    border-radius: 12px;
-                }}
-            """)
-
-    def dragLeaveEvent(self, event):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DarkPalette.SURFACE};
-                border: 2px dashed {DarkPalette.BORDER};
-                border-radius: 12px;
-            }}
-        """)
-
-    def dropEvent(self, event: QDropEvent):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DarkPalette.SURFACE};
-                border: 2px dashed {DarkPalette.BORDER};
-                border-radius: 12px;
-            }}
-        """)
-
-        urls = event.mimeData().urls()
-        if urls:
-            path = urls[0].toLocalFile()
-            if os.path.isdir(path):
-                self.folder_dropped.emit(path)
-            else:
-                QMessageBox.warning(
-                    self, "Invalid Selection",
-                    "Please drop a folder containing product images."
-                )
-
-    def _get_default_browse_path(self) -> str:
-        """Get default browse path from config or fall back to home."""
-        if hasattr(self, 'config') and self.config:
-            config_path = self.config.get("paths", {}).get("default_browse", "")
-            if config_path and Path(config_path).exists():
-                return config_path
-            camera_path = self.config.get("paths", {}).get("camera_import", "")
-            if camera_path and Path(camera_path).exists():
-                return camera_path
-        return str(Path.home())
-
-    def browse_folder(self):
-        # Get default path from config, fallback to user's home directory
-        default_path = self._get_default_browse_path()
-
-        # Use a custom file dialog to allow seeing files while selecting a folder
-        dialog = QFileDialog(self, "Select Product Folder", default_path)
-        dialog.setFileMode(QFileDialog.Directory)
-        dialog.setOption(QFileDialog.ShowDirsOnly, False)  # Allow seeing files
-        dialog.setViewMode(QFileDialog.Detail)  # Try to show details/icons
-        dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.webp *.tiff *.bmp);;All Files (*)")
-
-        if dialog.exec_() == QFileDialog.Accepted:
-            folder = dialog.selectedFiles()[0]
-            if folder:
-                self.folder_dropped.emit(folder)
-
-    def browse_files(self):
-        # Get default path from config, fallback to user's home directory
-        default_path = ""
-
-        # Get path from config
-        if hasattr(self, 'config'):
-            default_path = self.config.get("paths", {}).get("camera_import", "")
-            if default_path:
-                requested_path = Path(default_path)
-                if requested_path.exists():
-                    default_path = str(requested_path)
-                else:
-                    default_path = ""
-
-        if not default_path:
-            default_path = str(Path.home())
-
-        # Define image file filters
-        file_filter = "Image Files (*.png *.jpg *.jpeg *.webp *.tiff *.bmp);;PNG Files (*.png);;JPEG Files (*.jpg *.jpeg);;WebP Files (*.webp);;All Files (*.*)"
-
-        files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Image Files",
-            default_path, file_filter
-        )
-        if files:
-            # Create a temporary folder structure for individual files
-            import tempfile
-            import shutil
-
-            # Create a temporary directory to hold the selected files
-            temp_dir = tempfile.mkdtemp(prefix="kollect_files_")
-            # Track temp dir in the main window application
-            if hasattr(self.window(), '_temp_dirs'):
-                self.window()._temp_dirs.append(temp_dir)
-
-            # Copy selected files to temp directory
-            for file_path in files:
-                file_name = Path(file_path).name
-                temp_file_path = Path(temp_dir) / file_name
-                shutil.copy2(file_path, temp_file_path)
-
-            # Emit the temporary folder as if it was dropped/selected
-            self.folder_dropped.emit(temp_dir)
-
-
-class ImageThumbnail(QLabel):
-    """Clickable image thumbnail with edit options."""
-
-    clicked = pyqtSignal(str)
-    selected = pyqtSignal(str)
-    crop_requested = pyqtSignal(str)
-    remove_bg_requested = pyqtSignal(str)
-
-    def __init__(self, image_path: str, parent=None):
-        super().__init__(parent)
-        self.image_path = image_path
-        self.is_selected = False  # Track selection state
-        # Increased size for "large format" display
-        self.setFixedSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
-        self.setCursor(Qt.PointingHandCursor)  # type: ignore
-        self.load_image()
-
-    def set_selected(self, selected: bool):
-        """Set the selected state and update style."""
-        self.is_selected = selected
-        self.update_style()
-
-    def update_style(self):
-        """Update the stylesheet based on state."""
-        border_color = DarkPalette.PRIMARY if self.is_selected else DarkPalette.BORDER
-        border_width = "4px" if self.is_selected else "2px"
-
-        self.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DarkPalette.SURFACE};
-                border: {border_width} solid {border_color};
-                border-radius: 8px;
-                padding: 4px;
-            }}
-            QLabel:hover {{
-                border-color: {DarkPalette.PRIMARY};
-            }}
-        """)
-
-    def load_image(self):
-        pixmap = QPixmap(self.image_path)
-        if not pixmap.isNull():
-            scaled = pixmap.scaled(
-                self.size(),
-                Qt.KeepAspectRatio,  # type: ignore
-                Qt.SmoothTransformation  # type: ignore
-            )
-            self.setPixmap(scaled)
-        self.update_style()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:  # type: ignore
-            # single press: mark as selected (but don't open preview yet)
-            self.selected.emit(self.image_path)
-        elif event.button() == Qt.RightButton:  # type: ignore
-            self.show_context_menu(event.pos())
-
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            # double-click opens preview / edit
-            self.clicked.emit(self.image_path)
-
-    def show_context_menu(self, pos):
-        menu = QMenu(self)
-        crop_action = menu.addAction("Crop Image")
-        bg_action = menu.addAction("Remove Background")
-        preview_action = menu.addAction("Preview Full Size")
-
-        action = menu.exec_(self.mapToGlobal(pos))
-        if action == crop_action:
-            self.crop_requested.emit(self.image_path)
-        elif action == bg_action:
-            self.remove_bg_requested.emit(self.image_path)
-        elif action == preview_action:
-            self.clicked.emit(self.image_path)
 
 
 class ProcessingThread(QThread):
@@ -419,6 +151,7 @@ class KollectItApp(QMainWindow):
         self.current_folder = None
         self._temp_dirs = []  # Track temporary directories for cleanup
         self.current_images = []
+        self.selected_images = []  # Track multi-selected images for batch operations
         self.uploaded_image_urls = []  # Store URLs after ImageKit upload
         self.processing_thread = None
 
@@ -584,10 +317,10 @@ class KollectItApp(QMainWindow):
         try:
             try:
                 import logging as _logging
-                _logging.getLogger(__name__).info(f"Using DarkPalette from module: {DarkPalette.__module__}")
+                _logging.getLogger(__name__).info(f"Using ModernPalette from module: {ModernPalette.__module__}")
             except Exception:
                 pass
-            self.setStyleSheet(DarkPalette.get_stylesheet())
+            self.setStyleSheet(ModernPalette.get_stylesheet())
         except Exception as e:
             import traceback
             print("Failed to apply stylesheet:", e)
@@ -597,16 +330,16 @@ class KollectItApp(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
-        main_layout.setSpacing(16)
-        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(24)
+        main_layout.setContentsMargins(24, 24, 24, 24)
 
         # Left panel - Input & Images
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setSpacing(12)
+        left_layout.setSpacing(16)
 
         # Drop zone
-        self.drop_zone = DropZone()
+        self.drop_zone = DropZone(config=self.config)
         self.drop_zone.folder_dropped.connect(self.on_folder_dropped)
         left_layout.addWidget(self.drop_zone)
 
@@ -614,20 +347,7 @@ class KollectItApp(QMainWindow):
         new_product_btn = QPushButton("+ Add New Product")
         new_product_btn.setObjectName("newProductBtn")
         new_product_btn.setProperty("variant", "secondary")
-        new_product_btn.setMinimumHeight(44)
-        new_product_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DarkPalette.SUCCESS};
-                color: #1a1b26;
-                font-size: 15px;
-                font-weight: 600;
-                border-radius: 10px;
-                padding: 12px 24px;
-            }}
-            QPushButton:hover {{
-                background-color: #7dd87d;
-            }}
-        """)
+        new_product_btn.setMinimumHeight(48)
         new_product_btn.clicked.connect(self.open_import_wizard)
         left_layout.addWidget(new_product_btn)
 
@@ -635,14 +355,24 @@ class KollectItApp(QMainWindow):
         images_group = QGroupBox("Product Images")
         images_layout = QVBoxLayout(images_group)
 
+        # ============================================================
+        # Feature 2: Enable drag-drop to add images to existing set
+        # ============================================================
+        images_group.setAcceptDrops(True)
+        images_group.dragEnterEvent = self.images_drag_enter
+        images_group.dropEvent = self.images_drop
+
         # Image grid scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setMinimumHeight(200)
+        scroll.setMinimumHeight(300)
+        scroll.setAcceptDrops(True)  # Also accept drops on scroll area
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
 
         self.image_grid = QWidget()
+        self.image_grid.setStyleSheet("background-color: transparent;")
         self.image_grid_layout = QGridLayout(self.image_grid)
-        self.image_grid_layout.setSpacing(8)
+        self.image_grid_layout.setSpacing(12)
         scroll.setWidget(self.image_grid)
         images_layout.addWidget(scroll)
 
@@ -678,7 +408,7 @@ class KollectItApp(QMainWindow):
         # Right panel - Product Details & Actions
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setSpacing(12)
+        right_layout.setSpacing(16)
 
         # Tabs for different sections
         tabs = QTabWidget()
@@ -688,12 +418,10 @@ class KollectItApp(QMainWindow):
         details_layout = QVBoxLayout(details_tab)
 
         form = QFormLayout()
-        form.setSpacing(14)
+        form.setSpacing(16)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         form.setRowWrapPolicy(QFormLayout.DontWrapRows)
-        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Title
         self.title_edit = QLineEdit()
@@ -707,7 +435,7 @@ class KollectItApp(QMainWindow):
         self.sku_edit.setReadOnly(True)
         self.sku_edit.setPlaceholderText("Auto-generated")
         sku_layout.addWidget(self.sku_edit)
-        self.regenerate_sku_btn = QPushButton("↻")
+        self.regenerate_sku_btn = QPushButton("Regen")
         self.regenerate_sku_btn.setFixedWidth(80)
         self.regenerate_sku_btn.clicked.connect(self.regenerate_sku)
         sku_layout.addWidget(self.regenerate_sku_btn)
@@ -790,7 +518,7 @@ class KollectItApp(QMainWindow):
         self.generate_valuation_btn.setProperty("variant", "secondary")
         self.generate_valuation_btn.clicked.connect(self.generate_valuation)
         ai_btn_layout.addWidget(self.generate_valuation_btn)
-        ai_btn_layout.setSpacing(10)
+        ai_btn_layout.setSpacing(12)
         desc_layout.addLayout(ai_btn_layout)
         desc_layout.addSpacing(6)
 
@@ -800,12 +528,10 @@ class KollectItApp(QMainWindow):
         # SEO Tab
         seo_tab = QWidget()
         seo_layout = QFormLayout(seo_tab)
-        seo_layout.setSpacing(14)
+        seo_layout.setSpacing(16)
         seo_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         seo_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         seo_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
-        seo_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        seo_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         self.seo_title_edit = QLineEdit()
         self.seo_title_edit.setPlaceholderText("SEO-optimized title")
@@ -825,12 +551,10 @@ class KollectItApp(QMainWindow):
         # Settings Tab
         settings_tab = QWidget()
         settings_layout = QFormLayout(settings_tab)
-        settings_layout.setSpacing(14)
+        settings_layout.setSpacing(16)
         settings_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         settings_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         settings_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
-        settings_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        settings_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         self.bg_removal_check = QCheckBox("Enable AI Background Removal")
         self.bg_removal_check.setChecked(
@@ -858,7 +582,7 @@ class KollectItApp(QMainWindow):
         progress_layout.addWidget(self.progress_bar)
 
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet(f"color: {DarkPalette.TEXT_SECONDARY};")
+        self.status_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY};")
         progress_layout.addWidget(self.status_label)
 
         right_layout.addWidget(progress_group)
@@ -878,7 +602,6 @@ class KollectItApp(QMainWindow):
         self.export_btn.setProperty("variant", "primary")
         self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self.export_package)
-        # Inline export_btn stylesheet removed; handled by theme via object name
         actions_layout.addWidget(self.export_btn)
 
         right_layout.addLayout(actions_layout)
@@ -891,12 +614,26 @@ class KollectItApp(QMainWindow):
         self.log_output.setObjectName("activityLog")
         self.log_output.setReadOnly(True)
         self.log_output.setMaximumHeight(150)
-        # Inline log_output stylesheet removed; handled by theme via object name
         log_layout.addWidget(self.log_output)
 
         right_layout.addWidget(log_group)
 
         main_layout.addWidget(right_panel, stretch=1)
+
+        # ============================================================
+        # Keyboard Shortcuts for Multi-Select
+        # ============================================================
+        # Delete key - delete selected images
+        delete_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self)
+        delete_shortcut.activated.connect(self.delete_selected_images)
+        
+        # Ctrl+A - select all images
+        select_all_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        select_all_shortcut.activated.connect(self.select_all_images)
+        
+        # Escape - clear selection
+        escape_shortcut = QShortcut(QKeySequence(Qt.Key_Escape), self)
+        escape_shortcut.activated.connect(self.clear_image_selection)
 
     def setup_menu(self):
         """Set up the application menu bar."""
@@ -985,15 +722,15 @@ class KollectItApp(QMainWindow):
 
         # Color coding for different levels
         colors = {
-            "info": "#60a5fa",      # Blue
-            "success": "#4ade80",   # Green
-            "warning": "#fbbf24",   # Yellow
-            "error": "#f87171",     # Red
+            "info": ModernPalette.INFO,
+            "success": ModernPalette.SUCCESS,
+            "warning": ModernPalette.WARNING,
+            "error": ModernPalette.ERROR,
         }
         color = colors.get(level, "#ffffff")
 
         # Format with HTML for colored output
-        formatted = f'<span style="color: #6b7280;">[{timestamp}]</span> <span style="color: {color};">{message}</span>'
+        formatted = f'<span style="color: {ModernPalette.TEXT_MUTED};">[{timestamp}]</span> <span style="color: {color};">{message}</span>'
 
         self.log_output.append(formatted)
 
@@ -1046,8 +783,10 @@ class KollectItApp(QMainWindow):
             thumb = ImageThumbnail(str(img_path))
             thumb.clicked.connect(self.preview_image)
             thumb.selected.connect(self.on_thumbnail_selected)
+            thumb.ctrl_clicked.connect(self.on_thumbnail_ctrl_clicked)  # Multi-select
             thumb.crop_requested.connect(self.crop_image)
             thumb.remove_bg_requested.connect(self.remove_image_background)
+            thumb.delete_requested.connect(self.delete_image_from_set)
 
             self.image_grid_layout.addWidget(thumb, row, col)
 
@@ -1056,6 +795,8 @@ class KollectItApp(QMainWindow):
                 col = 0
                 row += 1
 
+        # Clear multi-selection when loading new folder
+        self.selected_images = []
         self.log(f"Found {len(images)} images", "info")
 
     def on_thumbnail_clicked(self, image_path: str):
@@ -1064,7 +805,10 @@ class KollectItApp(QMainWindow):
         self.on_thumbnail_selected(image_path)
 
     def on_thumbnail_selected(self, image_path: str):
-        """Handle single-click selection without opening preview."""
+        """Handle single-click selection (clears multi-select, selects only this one)."""
+        # Clear multi-select, select only this one
+        self.selected_images = [image_path]
+        
         # Update selection state for all thumbnails
         for i in range(self.image_grid_layout.count()):
             item = self.image_grid_layout.itemAt(i)
@@ -1073,6 +817,221 @@ class KollectItApp(QMainWindow):
                 if isinstance(widget, ImageThumbnail):
                     is_selected = (widget.image_path == image_path)
                     widget.set_selected(is_selected)
+        
+        self.statusBar().showMessage(f"Selected: {Path(image_path).name}")
+
+    def on_thumbnail_ctrl_clicked(self, image_path: str):
+        """Toggle selection for multi-select (Ctrl+click)."""
+        if image_path in self.selected_images:
+            self.selected_images.remove(image_path)
+        else:
+            self.selected_images.append(image_path)
+        
+        # Update visual state for all thumbnails
+        for i in range(self.image_grid_layout.count()):
+            item = self.image_grid_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), ImageThumbnail):
+                widget = item.widget()
+                widget.set_selected(widget.image_path in self.selected_images)
+        
+        count = len(self.selected_images)
+        if count > 0:
+            self.statusBar().showMessage(f"{count} image(s) selected")
+        else:
+            self.statusBar().showMessage("Ready")
+
+    def delete_selected_images(self):
+        """Delete key handler - remove all selected images with confirmation."""
+        if not self.selected_images:
+            return
+        
+        count = len(self.selected_images)
+        if count > 1:
+            reply = QMessageBox.question(
+                self, "Delete Images",
+                f"Remove {count} selected images from set?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+        
+        # Remove all selected images
+        for img in self.selected_images[:]:
+            if img in self.current_images:
+                self.current_images.remove(img)
+        
+        removed = count
+        self.selected_images = []
+        self.log(f"Removed {removed} image(s) from set", "info")
+        self.refresh_image_grid()
+        self.statusBar().showMessage(f"{len(self.current_images)} images remaining")
+
+    def select_all_images(self):
+        """Ctrl+A handler - select all images in the grid."""
+        if not self.current_images:
+            return
+        
+        self.selected_images = self.current_images[:]
+        
+        # Update visual state for all thumbnails
+        for i in range(self.image_grid_layout.count()):
+            item = self.image_grid_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), ImageThumbnail):
+                item.widget().set_selected(True)
+        
+        self.statusBar().showMessage(f"Selected all {len(self.selected_images)} images")
+
+    def clear_image_selection(self):
+        """Escape handler - clear all image selections."""
+        self.selected_images = []
+        
+        # Update visual state for all thumbnails
+        for i in range(self.image_grid_layout.count()):
+            item = self.image_grid_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), ImageThumbnail):
+                item.widget().set_selected(False)
+        
+        self.statusBar().showMessage("Selection cleared")
+
+    # ============================================================
+    # Feature 1: Delete Individual Images from Set
+    # ============================================================
+    def delete_image_from_set(self, image_path: str):
+        """Remove an image (or all selected images) from the current product set."""
+        # If multiple images are selected, delete all of them
+        if len(self.selected_images) > 1:
+            count = 0
+            for img in self.selected_images[:]:  # Copy list to avoid modification during iteration
+                if img in self.current_images:
+                    self.current_images.remove(img)
+                    count += 1
+            self.selected_images = []
+            self.log(f"Removed {count} images from set", "info")
+        else:
+            # Single delete
+            if image_path in self.current_images:
+                self.current_images.remove(image_path)
+            if image_path in self.selected_images:
+                self.selected_images.remove(image_path)
+            self.log(f"Removed: {Path(image_path).name}", "info")
+        
+        # Refresh the grid
+        self.refresh_image_grid()
+        self.statusBar().showMessage(f"{len(self.current_images)} images remaining")
+
+    def refresh_image_grid(self):
+        """Refresh the image grid with current images."""
+        # Clear existing thumbnails
+        while self.image_grid_layout.count():
+            item = self.image_grid_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Re-add remaining images
+        row, col = 0, 0
+        max_cols = IMAGE_GRID_COLUMNS
+
+        for img_path in self.current_images:
+            thumb = ImageThumbnail(img_path)
+            thumb.clicked.connect(self.preview_image)
+            thumb.selected.connect(self.on_thumbnail_selected)
+            thumb.ctrl_clicked.connect(self.on_thumbnail_ctrl_clicked)  # Multi-select
+            thumb.crop_requested.connect(self.crop_image)
+            thumb.remove_bg_requested.connect(self.remove_image_background)
+            thumb.delete_requested.connect(self.delete_image_from_set)
+            
+            # Restore selection state if this image was previously selected
+            if img_path in self.selected_images:
+                thumb.set_selected(True)
+
+            self.image_grid_layout.addWidget(thumb, row, col)
+
+            col += 1
+            if col >= max_cols:
+                col = 0
+                row += 1
+
+        self.log(f"Image grid refreshed: {len(self.current_images)} images", "info")
+
+    # ============================================================
+    # Feature 2: Drag Additional Images into Existing Set
+    # ============================================================
+    def images_drag_enter(self, event):
+        """Handle drag enter on images area."""
+        if event.mimeData().hasUrls():
+            # Check if files are images
+            image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif', '.bmp'}
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if Path(path).suffix.lower() in image_extensions:
+                    event.acceptProposedAction()
+                    return
+            # Also accept folders containing images
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if os.path.isdir(path):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def images_drop(self, event):
+        """Handle drop on images area - add images to current set."""
+        urls = event.mimeData().urls()
+        image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif', '.bmp'}
+        added = 0
+
+        for url in urls:
+            path = url.toLocalFile()
+
+            # If a folder is dropped, process all images in it
+            if os.path.isdir(path):
+                folder_images = [
+                    str(f) for f in Path(path).iterdir()
+                    if f.suffix.lower() in image_extensions
+                ]
+                for img_path in folder_images:
+                    if img_path not in self.current_images:
+                        # Copy to current folder if different location
+                        if self.current_folder and Path(img_path).parent != Path(self.current_folder):
+                            import shutil
+                            dest = Path(self.current_folder) / Path(img_path).name
+                            # Avoid overwriting existing files
+                            if dest.exists():
+                                base = dest.stem
+                                ext = dest.suffix
+                                counter = 1
+                                while dest.exists():
+                                    dest = Path(self.current_folder) / f"{base}_{counter}{ext}"
+                                    counter += 1
+                            shutil.copy2(img_path, dest)
+                            self.current_images.append(str(dest))
+                        else:
+                            self.current_images.append(img_path)
+                        added += 1
+            elif Path(path).suffix.lower() in image_extensions:
+                if path not in self.current_images:
+                    # Copy to current folder if different location
+                    if self.current_folder and Path(path).parent != Path(self.current_folder):
+                        import shutil
+                        dest = Path(self.current_folder) / Path(path).name
+                        # Avoid overwriting existing files
+                        if dest.exists():
+                            base = dest.stem
+                            ext = dest.suffix
+                            counter = 1
+                            while dest.exists():
+                                dest = Path(self.current_folder) / f"{base}_{counter}{ext}"
+                                counter += 1
+                        shutil.copy2(path, dest)
+                        self.current_images.append(str(dest))
+                    else:
+                        self.current_images.append(path)
+                    added += 1
+
+        if added > 0:
+            self.log(f"Added {added} image(s) to set", "success")
+            self.refresh_image_grid()
 
     def detect_category(self, folder_path: str):
         """Auto-detect category from folder name or contents."""
@@ -1146,6 +1105,7 @@ class KollectItApp(QMainWindow):
         except Exception:
             pass
         dialog.setMinimumSize(800, 600)
+        dialog.setStyleSheet(ModernPalette.get_stylesheet())
 
         layout = QVBoxLayout(dialog)
 
@@ -1163,26 +1123,18 @@ class KollectItApp(QMainWindow):
         dialog.exec_()
 
     def crop_image(self, image_path: str):
-        """Open crop dialog for an image."""
+        """Open crop dialog for an image - overwrites the original file."""
         dialog = CropDialog(image_path, self, config=self.config)
+        # Apply modern theme to crop dialog if it supports it
+        if hasattr(dialog, 'setStyleSheet'):
+            dialog.setStyleSheet(ModernPalette.get_stylesheet())
+            
         if dialog.exec_() == QDialog.Accepted:
-            _cropped_path = dialog.get_cropped_path()
-            self.log(f"Cropped: {os.path.basename(image_path)}", "success")
-
-            # If the crop produced a file in a 'processed' subfolder,
-            # switch the view there so the user immediately sees results.
-            try:
-                if _cropped_path:
-                    from pathlib import Path as _P
-                    _out = _P(_cropped_path)
-                    if _out.exists() and _out.parent.name.lower() == "processed":
-                        self.load_images_from_folder(str(_out.parent))
-                        return
-            except Exception:
-                # Fall back to reloading current folder
-                pass
-
-            self.load_images_from_folder(self.current_folder)
+            self.log(f"✓ Saved: {os.path.basename(image_path)} (original overwritten)", "success")
+            
+            # Refresh the image grid to show updated thumbnail
+            if self.current_folder:
+                self.refresh_image_grid()
 
     def crop_selected_image(self):
         """Crop the first selected image."""
@@ -1349,14 +1301,19 @@ class KollectItApp(QMainWindow):
         self.status_label.setText("Error during processing")
 
     def analyze_and_autofill(self):
-        """Use AI to analyze images and autofill product fields."""
+        """
+        Use AI to analyze images and autofill ALL product fields.
+        This is the primary "upload photos → AI fills everything" workflow.
+        """
         if not self.current_images:
             QMessageBox.warning(self, "No Images", "Load a product folder first.")
             return
 
         try:
-            self.log("Analyzing images to suggest fields...", "info")
+            self.log("🔍 Analyzing images with AI...", "info")
             self.status_label.setText("AI analyzing images...")
+            self.progress_bar.setValue(10)
+            QApplication.processEvents()
 
             engine = AIEngine(self.config)
             images = self.current_images[:MAX_AI_IMAGES_ANALYZE]
@@ -1370,16 +1327,36 @@ class KollectItApp(QMainWindow):
             }
 
             categories = self.config.get("categories", {})
+            
+            self.progress_bar.setValue(30)
+            QApplication.processEvents()
+            
             result = engine.suggest_fields(product_data, categories)
 
             if not result:
-                self.log("AI analysis returned no data", "warning")
-                self.status_label.setText("Ready")
+                self.log("❌ AI analysis returned no data - check API key", "warning")
+                self.status_label.setText("Analysis failed - check API key")
+                self.progress_bar.setValue(0)
+                QMessageBox.warning(
+                    self, "AI Error",
+                    "AI analysis returned no results.\n\n"
+                    "Please check:\n"
+                    "1. ANTHROPIC_API_KEY is set in .env file\n"
+                    "2. API key is valid (starts with sk-ant-)\n"
+                    "3. Network connection is working"
+                )
                 return
+
+            self.progress_bar.setValue(50)
+            QApplication.processEvents()
+            
+            fields_filled = []
 
             # Title
             if result.get("title"):
                 self.title_edit.setText(result["title"])
+                fields_filled.append("Title")
+                self.log(f"📝 Title: {result['title']}", "info")
 
             # Category mapping
             cat_id = result.get("category_id")
@@ -1387,83 +1364,139 @@ class KollectItApp(QMainWindow):
                 idx = self.category_combo.findData(cat_id)
                 if idx >= 0:
                     self.category_combo.setCurrentIndex(idx)
-                    # ensure subcategories are refreshed
-                    self.on_category_changed()
+                    self.on_category_changed()  # Refresh subcategories
+                    fields_filled.append("Category")
+                    self.log(f"📂 Category: {cat_id}", "info")
                 else:
-                    self.log(f"AI suggested category '{cat_id}' not found in config; keeping current.", "warning")
+                    self.log(f"⚠️ Category '{cat_id}' not found in config", "warning")
+            
+            QApplication.processEvents()
 
             # Subcategory
             subc = result.get("subcategory")
             if subc:
-                idx = self.subcategory_combo.findText(subc)
+                # Try exact match first, then contains match
+                idx = self.subcategory_combo.findText(subc, Qt.MatchExactly)
+                if idx < 0:
+                    idx = self.subcategory_combo.findText(subc, Qt.MatchContains)
                 if idx >= 0:
                     self.subcategory_combo.setCurrentIndex(idx)
                 else:
-                    # If not present, add it temporarily for convenience
+                    # Add it temporarily
                     self.subcategory_combo.insertItem(0, subc)
                     self.subcategory_combo.setCurrentIndex(0)
+                fields_filled.append("Subcategory")
+                self.log(f"📁 Subcategory: {subc}", "info")
 
             # Condition
             cond = result.get("condition")
             if cond:
-                idx = self.condition_combo.findText(cond)
+                idx = self.condition_combo.findText(cond, Qt.MatchContains)
                 if idx >= 0:
                     self.condition_combo.setCurrentIndex(idx)
                 else:
                     self.condition_combo.insertItem(0, cond)
                     self.condition_combo.setCurrentIndex(0)
+                fields_filled.append("Condition")
+                self.log(f"⭐ Condition: {cond}", "info")
+
+            self.progress_bar.setValue(70)
+            QApplication.processEvents()
 
             # Era & Origin
             if result.get("era"):
                 self.era_edit.setText(result["era"])
+                fields_filled.append("Era")
+                self.log(f"📅 Era: {result['era']}", "info")
             if result.get("origin"):
                 self.origin_edit.setText(result["origin"])
+                fields_filled.append("Origin")
+                self.log(f"🌍 Origin: {result['origin']}", "info")
 
-            # Description & SEO
+            # Description
             if result.get("description"):
                 self.description_edit.setPlainText(result["description"])
+                fields_filled.append("Description")
+                self.log(f"📄 Description: {len(result['description'])} chars", "info")
+            
+            self.progress_bar.setValue(85)
+            QApplication.processEvents()
+            
+            # SEO fields
             if result.get("seo_title"):
-                self.seo_title_edit.setText(result["seo_title"])
+                self.seo_title_edit.setText(result["seo_title"][:70])
+                fields_filled.append("SEO Title")
+            
             if result.get("seo_description"):
-                self.seo_desc_edit.setPlainText(result["seo_description"])
-            if result.get("keywords") and isinstance(result["keywords"], list):
-                self.seo_keywords_edit.setText(", ".join(result["keywords"]))
+                self.seo_desc_edit.setPlainText(result["seo_description"][:160])
+                fields_filled.append("SEO Description")
+            
+            keywords = result.get("keywords", [])
+            if keywords:
+                if isinstance(keywords, list):
+                    self.seo_keywords_edit.setText(", ".join(keywords))
+                else:
+                    self.seo_keywords_edit.setText(str(keywords))
+                fields_filled.append("Keywords")
+                self.log(f"🏷️ Keywords: {len(keywords) if isinstance(keywords, list) else 1} generated", "info")
 
-            # Valuation -> suggest price (user can adjust)
+            self.progress_bar.setValue(95)
+            QApplication.processEvents()
+
+            # Valuation -> show in log but don't auto-set price
             val = result.get("valuation") or {}
             rec_price = val.get("recommended")
+            low_price = val.get("low", 0)
+            high_price = val.get("high", 0)
+            confidence = val.get("confidence", "Unknown")
+            
             if isinstance(rec_price, (int, float)) and rec_price > 0:
-                try:
-                    self.price_spin.setValue(float(rec_price))
-                except Exception:
-                    pass
                 self.last_valuation = {
-                    "low": val.get("low"),
-                    "high": val.get("high"),
+                    "low": low_price,
+                    "high": high_price,
                     "recommended": rec_price,
-                    "confidence": val.get("confidence", ""),
+                    "confidence": confidence,
                     "notes": val.get("notes", "")
                 }
                 self.log(
-                    f"AI suggested price range: ${val.get('low', 0):,.2f} - ${val.get('high', 0):,.2f} (Rec: ${rec_price:,.2f})",
+                    f"💰 Estimated Value: ${low_price:,.0f} - ${high_price:,.0f} "
+                    f"(Recommended: ${rec_price:,.0f}, {confidence} confidence)",
                     "info"
                 )
+                # Optionally set the price
+                if self.price_spin.value() == 0:
+                    self.price_spin.setValue(float(rec_price))
+                    fields_filled.append("Price")
 
+            self.progress_bar.setValue(100)
             self.update_export_button_state()
-            self.status_label.setText("Ready")
-            self.log("Fields autofilled from images", "success")
+            self.status_label.setText("Analysis complete!")
+            
+            # Success summary
+            self.log(f"✅ AI filled {len(fields_filled)} fields: {', '.join(fields_filled)}", "success")
+            self.log("Review and adjust as needed, then Generate Description for final polish", "info")
 
         except ValueError as ve:
             # Likely missing API key
+            self.progress_bar.setValue(0)
             QMessageBox.critical(
                 self,
-                "AI Configuration",
-                f"{ve}\n\nSet ANTHROPIC_API_KEY in desktop-app/.env and restart."
+                "AI Configuration Error",
+                f"{ve}\n\n"
+                "To fix this:\n"
+                "1. Open desktop-app/.env file\n"
+                "2. Add: ANTHROPIC_API_KEY=sk-ant-api03-your-key\n"
+                "3. Restart the application"
             )
-            self.status_label.setText("Ready")
+            self.status_label.setText("API key not configured")
         except Exception as e:
-            self.log(f"AI analyze error: {e}", "error")
-            self.status_label.setText("Ready")
+            self.progress_bar.setValue(0)
+            self.log(f"❌ AI analyze error: {e}", "error")
+            self.status_label.setText("Analysis error")
+            QMessageBox.warning(
+                self, "AI Error",
+                f"An error occurred during analysis:\n\n{str(e)}"
+            )
 
     def generate_description(self):
         """Generate product description using AI."""
@@ -1505,6 +1538,10 @@ class KollectItApp(QMainWindow):
                     self.status_label.setText("AI error - check log")
                     return
 
+                # ============================================================
+                # Issue 3: SEO Fields Population - Robust field mapping
+                # ============================================================
+
                 # Populate description
                 description = result.get("description", "")
                 if description:
@@ -1513,26 +1550,51 @@ class KollectItApp(QMainWindow):
                 else:
                     self.log("Warning: No description in AI response", "warning")
 
-                # Populate SEO fields
-                seo_title = result.get("seo_title", "")
+                # Populate SEO Title - try multiple keys
+                seo_title = (
+                    result.get("seo_title") or
+                    result.get("seoTitle") or
+                    result.get("suggested_title") or
+                    ""
+                )
                 if seo_title:
-                    self.seo_title_edit.setText(seo_title)
-                    self.log(f"SEO Title: {seo_title}", "info")
+                    # Truncate to 70 chars as per SEO best practices
+                    self.seo_title_edit.setText(seo_title[:70])
+                    self.log(f"SEO Title: {seo_title[:50]}...", "info")
 
-                seo_desc = result.get("seo_description", "")
+                # Populate SEO Meta Description - try multiple keys
+                seo_desc = (
+                    result.get("seo_description") or
+                    result.get("seoDescription") or
+                    result.get("meta_description") or
+                    ""
+                )
                 if seo_desc:
-                    self.seo_desc_edit.setPlainText(seo_desc)
+                    # Truncate to 160 chars as per SEO best practices
+                    self.seo_desc_edit.setPlainText(seo_desc[:160])
                     self.log(f"SEO Description: {seo_desc[:50]}...", "info")
+                elif description:
+                    # Fallback: use first 160 chars of description
+                    fallback_desc = description[:160].rsplit(' ', 1)[0] + "..."
+                    self.seo_desc_edit.setPlainText(fallback_desc)
+                    self.log("SEO Description: Auto-generated from description", "info")
 
-                keywords = result.get("keywords", [])
+                # Populate Keywords - handle both list and string formats
+                keywords = result.get("keywords") or result.get("seoKeywords") or []
                 if keywords:
-                    self.seo_keywords_edit.setText(", ".join(keywords))
-                    self.log(f"Keywords: {len(keywords)} generated", "info")
+                    if isinstance(keywords, list):
+                        keywords_str = ", ".join(str(k) for k in keywords)
+                    else:
+                        keywords_str = str(keywords)
+                    self.seo_keywords_edit.setText(keywords_str)
+                    keyword_count = len(keywords) if isinstance(keywords, list) else keywords_str.count(",") + 1
+                    self.log(f"Keywords: {keyword_count} generated", "info")
 
-                # Populate suggested title
-                if result.get("suggested_title"):
-                    self.title_edit.setText(result["suggested_title"])
-                    self.log(f"Suggested title: {result['suggested_title']}", "info")
+                # Populate suggested title if current title is empty
+                suggested_title = result.get("suggested_title") or result.get("title") or ""
+                if suggested_title and not self.title_edit.text().strip():
+                    self.title_edit.setText(suggested_title)
+                    self.log(f"Suggested title: {suggested_title}", "info")
 
                 # Handle valuation if present (from description generation)
                 valuation = result.get("valuation")
@@ -1552,6 +1614,15 @@ class KollectItApp(QMainWindow):
                             "confidence": valuation.get("confidence", "Medium"),
                             "notes": valuation.get("notes", "")
                         }
+                        # Optionally suggest the price
+                        if self.price_spin.value() == 0 and recommended > 0:
+                            self.price_spin.setValue(float(recommended))
+                            self.log(f"Price auto-set to ${recommended:,.2f}", "info")
+
+                # Handle condition notes
+                condition_notes = result.get("condition_notes", "")
+                if condition_notes:
+                    self.log(f"Condition: {condition_notes[:100]}...", "info")
 
                 self.log("AI description generated successfully", "success")
                 self.update_export_button_state()
@@ -1620,6 +1691,22 @@ class KollectItApp(QMainWindow):
     def upload_to_imagekit(self):
         """Upload processed images to ImageKit."""
         if not self.current_images:
+            QMessageBox.warning(self, "No Images", "Load a product folder first.")
+            return
+
+        # ============================================================
+        # Issue 4: ImageKit Upload Validation - Pre-flight check
+        # ============================================================
+        private_key = os.getenv("IMAGEKIT_PRIVATE_KEY") or self.config.get("imagekit", {}).get("private_key", "")
+        if not private_key:
+            QMessageBox.warning(
+                self, "ImageKit Not Configured",
+                "ImageKit private key is not configured.\n\n"
+                "Please add IMAGEKIT_PRIVATE_KEY to your .env file:\n"
+                "  IMAGEKIT_PRIVATE_KEY=private_xxxxx\n\n"
+                "Get your keys from:\n"
+                "https://imagekit.io/dashboard/developer/api-keys"
+            )
             return
 
         self.log("Uploading to ImageKit...", "info")
@@ -1803,6 +1890,7 @@ class KollectItApp(QMainWindow):
         self.subcategory_combo.setCurrentIndex(0)
         self.current_folder = None
         self.current_images = []
+        self.selected_images = []  # Clear multi-selection
         self.uploaded_image_urls = []
         self.last_valuation = None
 
@@ -1859,7 +1947,7 @@ class KollectItApp(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle("Settings")
         dialog.setMinimumSize(600, 500)
-        dialog.setStyleSheet(DarkPalette.get_stylesheet())
+        dialog.setStyleSheet(ModernPalette.get_stylesheet())
 
         layout = QVBoxLayout(dialog)
 
@@ -1911,11 +1999,19 @@ class KollectItApp(QMainWindow):
         ai_layout.setSpacing(12)
 
         # API key is read from ANTHROPIC_API_KEY environment variable only
-        # Display status instead of editable field
+        # Show status with a Test button to verify connectivity
         api_key_status = "Configured" if os.getenv("ANTHROPIC_API_KEY") else "Not set (set ANTHROPIC_API_KEY in .env)"
         api_key_label = QLabel(api_key_status)
         api_key_label.setStyleSheet("color: #48bb78;" if os.getenv("ANTHROPIC_API_KEY") else "color: #f56565;")
-        ai_layout.addRow("Anthropic API Key:", api_key_label)
+        key_row = QWidget()
+        key_row_layout = QHBoxLayout(key_row)
+        key_row_layout.setContentsMargins(0, 0, 0, 0)
+        key_row_layout.setSpacing(8)
+        key_row_layout.addWidget(api_key_label, 1)
+        test_key_btn = QPushButton("Test Anthropic Key")
+        test_key_btn.clicked.connect(self.test_anthropic_key)
+        key_row_layout.addWidget(test_key_btn, 0)
+        ai_layout.addRow("Anthropic API Key:", key_row)
 
         self.ai_model_edit = QLineEdit()
         self.ai_model_edit.setText(self.config.get("ai", {}).get("model", "claude-sonnet-4-20250514"))
@@ -1996,6 +2092,44 @@ class KollectItApp(QMainWindow):
 
         QMessageBox.information(dialog, "Settings Saved", "Settings have been saved successfully.")
         dialog.accept()
+
+    def test_anthropic_key(self):
+        """Health check Anthropic API key via a minimal Messages API call."""
+        key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not key:
+            QMessageBox.warning(self, "Anthropic Key Test", "No Anthropic API key set. Add ANTHROPIC_API_KEY in .env and try again.")
+            return
+
+        model = self.ai_model_edit.text().strip() if self.ai_model_edit else self.config.get("ai", {}).get("model", "claude-sonnet-4-20250514")
+
+        headers = {
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
+        payload = {
+            "model": model,
+            "max_tokens": 1,
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "ping"}]}
+            ],
+        }
+
+        try:
+            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=20)
+            if resp.status_code == 200:
+                QMessageBox.information(self, "Anthropic Key Test", "Success: Anthropic API responded OK.")
+            else:
+                msg = None
+                try:
+                    data = resp.json()
+                    msg = data.get("error", {}).get("message") or resp.text
+                except Exception:
+                    msg = resp.text
+                QMessageBox.warning(self, "Anthropic Key Test", f"Failed ({resp.status_code}): {msg}")
+        except Exception as e:
+            QMessageBox.critical(self, "Anthropic Key Test", f"Error testing key: {e}")
 
     def show_about(self):
         """Show about dialog."""

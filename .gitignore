@@ -35,6 +35,7 @@ tsconfig.tsbuildinfo
 # Credentials
 credentials/
 token.json
+desktop-app/certs/
 
 # ==========================
 # IDE & Editor Configuration

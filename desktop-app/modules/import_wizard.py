@@ -22,6 +22,7 @@ from PyQt5.QtGui import QPixmap, QImage, QFont, QIcon
 
 from PIL import Image, ImageOps
 from io import BytesIO
+from .theme_modern import ModernPalette
 
 
 class CategoryButton(QPushButton):
@@ -42,29 +43,29 @@ class CategoryButton(QPushButton):
     def update_style(self, selected: bool):
         """Update button style based on selection state."""
         if selected:
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #e94560;
-                    color: white;
-                    border: 2px solid #e94560;
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {ModernPalette.PRIMARY};
+                    color: #181926;
+                    border: 2px solid {ModernPalette.PRIMARY};
                     border-radius: 8px;
                     padding: 10px;
-                }
+                }}
             """)
         else:
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #16213e;
-                    color: #a0a0a0;
-                    border: 2px solid #2d3748;
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {ModernPalette.SURFACE_LIGHT};
+                    color: {ModernPalette.TEXT_SECONDARY};
+                    border: 2px solid {ModernPalette.BORDER};
                     border-radius: 8px;
                     padding: 10px;
-                }
-                QPushButton:hover {
-                    background-color: #1f3460;
-                    border-color: #e94560;
-                    color: white;
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {ModernPalette.BTN_SECONDARY_HOVER};
+                    border-color: {ModernPalette.PRIMARY};
+                    color: {ModernPalette.TEXT};
+                }}
             """)
 
 
@@ -91,11 +92,11 @@ class PhotoThumbnail(QFrame):
         self.image_label.setFixedSize(188, 200)
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setScaledContents(True)  # Scale image to fit
-        self.image_label.setStyleSheet("""
-            QLabel {
-                background-color: #0f0f1a;
+        self.image_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: {ModernPalette.BACKGROUND};
                 border-radius: 4px;
-            }
+            }}
         """)
         layout.addWidget(self.image_label)
 
@@ -105,7 +106,7 @@ class PhotoThumbnail(QFrame):
             filename = filename[:17] + "..."
         self.name_label = QLabel(filename)
         self.name_label.setAlignment(Qt.AlignCenter)
-        self.name_label.setStyleSheet("color: #a0a0a0; font-size: 14px;")
+        self.name_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY}; font-size: 14px;")
         self.name_label.setWordWrap(True)
         layout.addWidget(self.name_label)
 
@@ -175,7 +176,7 @@ class PhotoThumbnail(QFrame):
         except Exception as e:
             self.image_label.clear()
             self.image_label.setText("Error\nLoading")
-            self.image_label.setStyleSheet("color: #fc8181; font-size: 14px;")
+            self.image_label.setStyleSheet(f"color: {ModernPalette.ERROR}; font-size: 14px;")
             print(f"Error loading thumbnail for {self.file_path}: {e}")
 
     def mousePressEvent(self, event):
@@ -201,23 +202,23 @@ class PhotoThumbnail(QFrame):
     def update_style(self):
         """Update frame style based on selection."""
         if self.selected:
-            self.setStyleSheet("""
-                QFrame {
-                    background-color: #1f3460;
-                    border: 2px solid #e94560;
+            self.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {ModernPalette.SURFACE_LIGHT};
+                    border: 2px solid {ModernPalette.PRIMARY};
                     border-radius: 8px;
-                }
+                }}
             """)
         else:
-            self.setStyleSheet("""
-                QFrame {
-                    background-color: #16213e;
-                    border: 2px solid #2d3748;
+            self.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {ModernPalette.SURFACE};
+                    border: 2px solid {ModernPalette.BORDER};
                     border-radius: 8px;
-                }
-                QFrame:hover {
-                    border-color: #4a5568;
-                }
+                }}
+                QFrame:hover {{
+                    border-color: {ModernPalette.TEXT_MUTED};
+                }}
             """)
 
 
@@ -248,55 +249,8 @@ class ImportWizard(QDialog):
         self.setMinimumSize(800, 700)
         self.setModal(True)
 
-        # Apply dark theme
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1a1a2e;
-                color: #eaeaea;
-            }
-            QLabel {
-                color: #eaeaea;
-            }
-            QLineEdit {
-                background-color: #16213e;
-                border: 1px solid #2d3748;
-                border-radius: 6px;
-                padding: 10px;
-                color: #eaeaea;
-                font-size: 16px;
-            }
-            QLineEdit:focus {
-                border-color: #e94560;
-            }
-            QPushButton {
-                background-color: #e94560;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #c73e54;
-            }
-            QPushButton:disabled {
-                background-color: #2d3748;
-                color: #6b7280;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #2d3748;
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 10px;
-                color: #e94560;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-            }
-        """)
+        # Apply Modern Theme
+        self.setStyleSheet(ModernPalette.get_stylesheet())
 
         self.setup_ui()
         self.load_photos()
@@ -310,7 +264,7 @@ class ImportWizard(QDialog):
         # Title
         title = QLabel("📦 Add New Product")
         title.setFont(QFont("Segoe UI", 22, QFont.Bold))
-        title.setStyleSheet("color: #e94560;")
+        title.setStyleSheet(f"color: {ModernPalette.PRIMARY};")
         layout.addWidget(title)
 
         # Step 1: Category Selection
@@ -351,12 +305,12 @@ class ImportWizard(QDialog):
 
         preview_layout.addWidget(QLabel("SKU:"), 0, 0)
         self.sku_label = QLabel("—")
-        self.sku_label.setStyleSheet("color: #48bb78; font-weight: bold; font-size: 18px;")
+        self.sku_label.setStyleSheet(f"color: {ModernPalette.SUCCESS}; font-weight: bold; font-size: 18px;")
         preview_layout.addWidget(self.sku_label, 0, 1)
 
         preview_layout.addWidget(QLabel("Folder:"), 1, 0)
         self.folder_label = QLabel("—")
-        self.folder_label.setStyleSheet("color: #a0a0a0; font-size: 14px;")
+        self.folder_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY}; font-size: 14px;")
         self.folder_label.setWordWrap(True)
         preview_layout.addWidget(self.folder_label, 1, 1)
 
@@ -369,7 +323,7 @@ class ImportWizard(QDialog):
         # Source folder info
         source_layout = QHBoxLayout()
         source_label = QLabel("Source:")
-        source_label.setStyleSheet("color: #a0a0a0;")
+        source_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY};")
         source_layout.addWidget(source_label)
 
         # Use Windows path format with backslashes
@@ -377,35 +331,17 @@ class ImportWizard(QDialog):
         # Normalize path separators for display
         camera_path_display = camera_path.replace("/", "\\")
         self.source_path_label = QLabel(camera_path_display)
-        self.source_path_label.setStyleSheet("color: #eaeaea;")
+        self.source_path_label.setStyleSheet(f"color: {ModernPalette.TEXT};")
         source_layout.addWidget(self.source_path_label)
         source_layout.addStretch()
 
         self.change_source_btn = QPushButton("Browse Folder...")
-        self.change_source_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #16213e;
-                border: 1px solid #2d3748;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #1f3460;
-            }
-        """)
+        self.change_source_btn.setProperty("variant", "utility")
         self.change_source_btn.clicked.connect(self.change_source_folder)
         source_layout.addWidget(self.change_source_btn)
 
         self.select_photos_btn = QPushButton("Select Photos...")
-        self.select_photos_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #16213e;
-                border: 1px solid #2d3748;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #1f3460;
-            }
-        """)
+        self.select_photos_btn.setProperty("variant", "utility")
         self.select_photos_btn.clicked.connect(self.select_individual_photos)
         source_layout.addWidget(self.select_photos_btn)
 
@@ -415,31 +351,19 @@ class ImportWizard(QDialog):
         sel_layout = QHBoxLayout()
 
         self.select_all_btn = QPushButton("Select All")
-        self.select_all_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #16213e;
-                border: 1px solid #2d3748;
-                padding: 6px 12px;
-            }
-        """)
+        self.select_all_btn.setProperty("variant", "utility")
         self.select_all_btn.clicked.connect(self.select_all_photos)
         sel_layout.addWidget(self.select_all_btn)
 
         self.select_none_btn = QPushButton("Select None")
-        self.select_none_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #16213e;
-                border: 1px solid #2d3748;
-                padding: 6px 12px;
-            }
-        """)
+        self.select_none_btn.setProperty("variant", "utility")
         self.select_none_btn.clicked.connect(self.select_no_photos)
         sel_layout.addWidget(self.select_none_btn)
 
         sel_layout.addStretch()
 
         self.selected_count_label = QLabel("0 photos selected")
-        self.selected_count_label.setStyleSheet("color: #a0a0a0;")
+        self.selected_count_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY};")
         sel_layout.addWidget(self.selected_count_label)
 
         photo_layout.addLayout(sel_layout)
@@ -448,12 +372,12 @@ class ImportWizard(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(400)  # Increased height for large icons
-        scroll.setStyleSheet("""
-            QScrollArea {
-                border: 1px solid #2d3748;
+        scroll.setStyleSheet(f"""
+            QScrollArea {{
+                border: 1px solid {ModernPalette.BORDER};
                 border-radius: 6px;
-                background-color: #0f0f1a;
-            }
+                background-color: {ModernPalette.SURFACE};
+            }}
         """)
 
         self.photo_grid_widget = QWidget()
@@ -469,15 +393,7 @@ class ImportWizard(QDialog):
         btn_layout = QHBoxLayout()
 
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #16213e;
-                border: 1px solid #2d3748;
-            }
-            QPushButton:hover {
-                background-color: #1f3460;
-            }
-        """)
+        self.cancel_btn.setProperty("variant", "utility")
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
 
@@ -487,6 +403,7 @@ class ImportWizard(QDialog):
         self.import_btn.setEnabled(False)
         self.import_btn.setMinimumWidth(150)
         self.import_btn.clicked.connect(self.do_import)
+        self.import_btn.setProperty("variant", "primary")
         btn_layout.addWidget(self.import_btn)
 
         layout.addLayout(btn_layout)
@@ -598,7 +515,7 @@ class ImportWizard(QDialog):
                     f"Please use 'Browse Folder' or 'Select Photos' to choose a location."
                 )
                 no_folder.setAlignment(Qt.AlignCenter)
-                no_folder.setStyleSheet("color: #fc8181; padding: 40px; font-size: 14px;")
+                no_folder.setStyleSheet(f"color: {ModernPalette.ERROR}; padding: 40px; font-size: 14px;")
                 self.photo_grid.addWidget(no_folder, 0, 0)
                 return
 
@@ -617,13 +534,13 @@ class ImportWizard(QDialog):
                 f"Please check folder permissions or select a different location."
             )
             error_label.setAlignment(Qt.AlignCenter)
-            error_label.setStyleSheet("color: #fc8181; padding: 40px; font-size: 14px;")
+            error_label.setStyleSheet(f"color: {ModernPalette.ERROR}; padding: 40px; font-size: 14px;")
             self.photo_grid.addWidget(error_label, 0, 0)
             return
         except Exception as e:
             error_label = QLabel(f"Error reading folder:\n{str(e)}")
             error_label.setAlignment(Qt.AlignCenter)
-            error_label.setStyleSheet("color: #fc8181; padding: 40px; font-size: 14px;")
+            error_label.setStyleSheet(f"color: {ModernPalette.ERROR}; padding: 40px; font-size: 14px;")
             self.photo_grid.addWidget(error_label, 0, 0)
             return
 
@@ -638,7 +555,7 @@ class ImportWizard(QDialog):
                 f"or 'Select Photos' to choose individual files."
             )
             no_photos.setAlignment(Qt.AlignCenter)
-            no_photos.setStyleSheet("color: #a0a0a0; padding: 40px; font-size: 14px;")
+            no_photos.setStyleSheet(f"color: {ModernPalette.TEXT_MUTED}; padding: 40px; font-size: 14px;")
             self.photo_grid.addWidget(no_photos, 0, 0)
             return
 
@@ -803,11 +720,11 @@ class ImportWizard(QDialog):
         progress = QProgressDialog("Importing photos...", "Cancel", 0, len(self.selected_photos) + 2, self)
         progress.setWindowModality(Qt.WindowModal)
         progress.setWindowTitle("Importing")
-        progress.setStyleSheet("""
-            QProgressDialog {
-                background-color: #1a1a2e;
-                color: #eaeaea;
-            }
+        progress.setStyleSheet(f"""
+            QProgressDialog {{
+                background-color: {ModernPalette.BACKGROUND};
+                color: {ModernPalette.TEXT};
+            }}
         """)
         progress.show()
 

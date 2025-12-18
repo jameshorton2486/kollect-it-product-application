@@ -12,7 +12,7 @@ Modules:
     - background_remover: AI background removal
     - crop_tool: Interactive image cropping
     - config_validator: Configuration validation and error checking
-    - theme: Dark theme palette and stylesheet
+    - theme_modern: Modern theme palette and stylesheet
     - widgets: Custom UI widgets (DropZone, ImageThumbnail)
     - workers: Background processing threads
 """
@@ -26,7 +26,7 @@ from .crop_tool import CropDialog
 from .config_validator import ConfigValidator
 from .output_generator import OutputGenerator
 from .import_wizard import ImportWizard
-from .theme import DarkPalette
+from .theme_modern import ModernPalette
 from .widgets import DropZone, ImageThumbnail
 from .workers import ProcessingThread, BackgroundRemovalThread, UploadThread
 
@@ -44,7 +44,7 @@ __all__ = [
     'OutputGenerator',
     'ImportWizard',
     # UI components
-    'DarkPalette',
+    'ModernPalette',
     'DropZone',
     'ImageThumbnail',
     # Workers

@@ -10,6 +10,8 @@ The user drags:
 - Bottom line (horizontal)
 
 The crop area is the rectangle formed by these 4 lines.
+
+UPDATED: Now overwrites original file (with automatic backup to .originals/)
 """
 
 import shutil
@@ -26,6 +28,7 @@ from PyQt5.QtCore import Qt, QRect, QPoint, QSize, QTimer, pyqtSignal
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QBrush, QCursor
 
 from PIL import Image
+from .theme_modern import ModernPalette
 
 
 class CropLines(QWidget):
@@ -68,10 +71,11 @@ class CropLines(QWidget):
         # Visual settings
         self.show_grid = True
 
-        # Colors
-        self.overlay_color = QColor(0, 0, 0, 140)  # Darkened outside area
-        self.line_color = QColor(233, 69, 96)  # Primary accent - red/pink
-        self.handle_color = QColor(255, 255, 255)  # White handles
+        # Colors - Use ModernPalette
+        self.overlay_color = QColor(0, 0, 0, 160)  # Darker overlay
+        # Parse hex color manually since QColor(string) might need '#'
+        self.line_color = QColor(ModernPalette.PRIMARY)  
+        self.handle_color = QColor(ModernPalette.TEXT)  
         self.grid_color = QColor(255, 255, 255, 80)  # Faint grid
 
     def set_bounds(self, width: int, height: int):
@@ -346,6 +350,8 @@ class CropDialog(QDialog):
     - Drag the RIGHT line to set right boundary
     - Drag the TOP line to set top boundary
     - Drag the BOTTOM line to set bottom boundary
+
+    BEHAVIOR: Overwrites the original file (backup saved to .originals/)
     """
 
     def __init__(self, image_path: str, parent=None, config: dict = None):
@@ -361,8 +367,8 @@ class CropDialog(QDialog):
         self.setWindowTitle(f"Crop Image - {self.image_path.name}")
         self.setMinimumSize(1000, 800)
 
-        # Rely on the global stylesheet from modules.theme.DarkPalette
-        # to ensure consistent fonts and colors across dialogs.
+        # Apply Modern Theme
+        self.setStyleSheet(ModernPalette.get_stylesheet())
 
         self.setup_ui()
         self.load_image()
@@ -373,14 +379,14 @@ class CropDialog(QDialog):
         layout.setSpacing(12)
 
         # Instructions
-        instructions = QLabel("Drag the RED lines to set crop boundaries")
-        instructions.setStyleSheet("""
-            QLabel {
-                color: #e94560;
+        instructions = QLabel("Drag the colored lines to set crop boundaries")
+        instructions.setStyleSheet(f"""
+            QLabel {{
+                color: {ModernPalette.PRIMARY};
                 font-size: 16px;
                 font-weight: bold;
                 padding: 8px;
-            }
+            }}
         """)
         instructions.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions)
@@ -460,13 +466,14 @@ class CropDialog(QDialog):
 
         self.reset_crop_btn = QPushButton("Reset Crop")
         self.reset_crop_btn.clicked.connect(self.reset_crop_to_full)
-        self.reset_crop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0f3460;
-            }
-            QPushButton:hover {
-                background-color: #1f4470;
-            }
+        self.reset_crop_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ModernPalette.BTN_SECONDARY_BG};
+                color: {ModernPalette.TEXT};
+            }}
+            QPushButton:hover {{
+                background-color: {ModernPalette.BTN_SECONDARY_HOVER};
+            }}
         """)
         zoom_layout.addWidget(self.reset_crop_btn)
 
@@ -479,7 +486,7 @@ class CropDialog(QDialog):
         info_layout.addWidget(self.size_label)
 
         self.crop_size_label = QLabel("Crop: -- x --")
-        self.crop_size_label.setStyleSheet("color: #4ade80; font-weight: bold;")
+        self.crop_size_label.setStyleSheet(f"color: {ModernPalette.SUCCESS}; font-weight: bold;")
         info_layout.addWidget(self.crop_size_label)
 
         info_layout.addStretch()
@@ -491,13 +498,16 @@ class CropDialog(QDialog):
 
         self.restore_btn = QPushButton("🔄 Restore Original")
         self.restore_btn.clicked.connect(self.restore_original)
-        self.restore_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #48bb78;
-            }
-            QPushButton:hover {
-                background-color: #38a169;
-            }
+        self.restore_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ModernPalette.SUCCESS};
+                color: {ModernPalette.BACKGROUND};
+                border: none;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #8ccf7c;
+            }}
         """)
         self.restore_btn.setEnabled(False)
         btn_layout.addWidget(self.restore_btn)
@@ -506,18 +516,23 @@ class CropDialog(QDialog):
 
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.clicked.connect(self.reject)
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3d5c;
-            }
-            QPushButton:hover {
-                background-color: #4d4d6c;
-            }
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ModernPalette.SURFACE};
+                border: 1px solid {ModernPalette.BORDER};
+            }}
+            QPushButton:hover {{
+                background-color: {ModernPalette.SURFACE_LIGHT};
+            }}
         """)
         btn_layout.addWidget(self.cancel_btn)
 
-        self.apply_btn = QPushButton("✓ Apply Crop")
+        self.apply_btn = QPushButton("💾 Save Changes")
+        self.apply_btn.setToolTip("Save all changes (crop, rotation, flip)")
         self.apply_btn.clicked.connect(self.apply_crop)
+        # Primary styling handled by global stylesheet if not overridden
+        self.apply_btn.setProperty("variant", "primary")
+        
         btn_layout.addWidget(self.apply_btn)
 
         layout.addLayout(btn_layout)
@@ -537,6 +552,7 @@ class CropDialog(QDialog):
 
     def load_image(self):
         """Load the image for editing."""
+        print(f"[CropDialog] Loading image: {self.image_path}")
         self.original_image = Image.open(self.image_path)
 
         # Check for existing backup
@@ -545,6 +561,7 @@ class CropDialog(QDialog):
 
         w, h = self.original_image.size
         self.size_label.setText(f"Original: {w} x {h}")
+        print(f"[CropDialog] Image size: {w} x {h}")
 
         self.update_display()
 
@@ -723,7 +740,9 @@ class CropDialog(QDialog):
                 QMessageBox.critical(self, "Error", f"Failed to restore: {e}")
 
     def apply_crop(self):
-        """Apply the crop and save."""
+        """Apply the crop and save - OVERWRITES ORIGINAL FILE."""
+        print("[CropDialog] Applying crop...")
+
         crop_rect = self.crop_overlay.get_crop_rect()
         zoom = self.zoom_slider.value() / 100
 
@@ -731,8 +750,10 @@ class CropDialog(QDialog):
         img = self.original_image
         if self.current_rotation != 0:
             img = img.rotate(-self.current_rotation, expand=True)
+            print(f"[CropDialog] Applied rotation: {self.current_rotation}°")
 
         # Convert crop rect to original coordinates
+        actual_crop_applied = False
         if crop_rect.isValid() and not crop_rect.isEmpty():
             orig_rect = QRect(
                 int(crop_rect.x() / zoom),
@@ -757,23 +778,23 @@ class CropDialog(QDialog):
                     min(img.width, orig_rect.x() + orig_rect.width()),
                     min(img.height, orig_rect.y() + orig_rect.height())
                 )
+                print(f"[CropDialog] Crop box: {box}")
                 img = img.crop(box)
+                actual_crop_applied = True
+                print(f"[CropDialog] Cropped to: {img.width} x {img.height}")
 
-        # Create backup of original before saving
+        # Create backup of original BEFORE saving
         backup_dir = self.image_path.parent / ".originals"
         backup_dir.mkdir(exist_ok=True)
 
         backup_file = backup_dir / f"{self.image_path.stem}_original{self.image_path.suffix}"
         if not backup_file.exists():
+            print(f"[CropDialog] Creating backup: {backup_file}")
             shutil.copy2(self.image_path, backup_file)
+        else:
+            print(f"[CropDialog] Backup already exists: {backup_file}")
 
-        # Save to processed folder
-        output_dir = self.image_path.parent / "processed"
-        output_dir.mkdir(exist_ok=True)
-
-        self.output_path = output_dir / f"{self.image_path.stem}-cropped.webp"
-
-        # Convert to RGB if needed
+        # Convert to RGB if needed (for JPEG/WebP compatibility)
         if img.mode in ("RGBA", "P"):
             background = Image.new("RGB", img.size, (255, 255, 255))
             if img.mode == "P":
@@ -782,21 +803,30 @@ class CropDialog(QDialog):
                 background.paste(img, mask=img.split()[-1])
             img = background
 
-        img.save(self.output_path, format="WEBP", quality=90)
-
-        # Depending on user preference (config), optionally overwrite original.
-        overwrite = False
+        # SAVE DIRECTLY TO THE ORIGINAL FILE PATH
         try:
-            overwrite = bool(self.config.get("defaults", {}).get("overwrite_on_crop", False))
-        except Exception:
-            overwrite = False
+            # Determine format based on original extension
+            ext = self.image_path.suffix.lower()
+            if ext in ('.jpg', '.jpeg'):
+                img.save(self.image_path, format="JPEG", quality=95)
+            elif ext == '.png':
+                img.save(self.image_path, format="PNG")
+            elif ext == '.webp':
+                img.save(self.image_path, format="WEBP", quality=95)
+            else:
+                # Default to JPEG for unknown formats
+                img.save(self.image_path, format="JPEG", quality=95)
 
-        if overwrite:
-            try:
-                shutil.copy2(self.output_path, self.image_path)
-            except Exception:
-                # If overwrite fails, continue — the cropped file still exists in processed/
-                pass
+            print(f"[CropDialog] ✓ Saved to: {self.image_path}")
+            self.output_path = self.image_path
+
+        except Exception as e:
+            print(f"[CropDialog] ✗ Error saving: {e}")
+            QMessageBox.critical(self, "Save Error", f"Failed to save image:\n{e}")
+            return
+
+        # Enable restore button now that we have a backup
+        self.restore_btn.setEnabled(True)
 
         self.accept()
 

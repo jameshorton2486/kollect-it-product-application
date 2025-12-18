@@ -8,14 +8,16 @@ PyQt5>=5.15.0
 Pillow>=10.0.0
 numpy>=1.24.0
 
-# HTTP Requests
+# HTTP Requests & TLS/SSL Support
 requests>=2.31.0
+certifi>=2024.2.2
 
-# AI Background Removal (optional - may require build tools on Windows)
-# The library `rembg` can have heavy build dependencies on Windows; install
-# only if you have Visual Studio Build Tools and a working C/C++ buildchain.
-# To install: `pip install rembg`
-# rembg>=2.0.50
+# AI Background Removal
+# Recommended for NVIDIA GPU users:
+# pip install rembg[gpu] onnxruntime-gpu
+# For CPU users:
+# pip install rembg
+rembg>=2.0.50
 
 # For document export features
 python-docx>=0.8.11
