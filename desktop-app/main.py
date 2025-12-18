@@ -2002,7 +2002,7 @@ class KollectItApp(QMainWindow):
         # Show status with a Test button to verify connectivity
         api_key_status = "Configured" if os.getenv("ANTHROPIC_API_KEY") else "Not set (set ANTHROPIC_API_KEY in .env)"
         api_key_label = QLabel(api_key_status)
-        api_key_label.setStyleSheet("color: #48bb78;" if os.getenv("ANTHROPIC_API_KEY") else "color: #f56565;")
+        api_key_label.setStyleSheet("color: #22c55e;" if os.getenv("ANTHROPIC_API_KEY") else "color: #f56565;")
         key_row = QWidget()
         key_row_layout = QHBoxLayout(key_row)
         key_row_layout.setContentsMargins(0, 0, 0, 0)

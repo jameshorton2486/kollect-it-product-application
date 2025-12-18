@@ -1,0 +1,11 @@
+
+# Environment files with secrets
+.env
+.env.txt
+.env.local
+*.env
+env.example.txt
+
+# Backup files
+*_backup.py
+*.bak

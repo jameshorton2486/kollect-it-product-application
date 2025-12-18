@@ -1,143 +1,162 @@
 """
-Kollect-It Product Manager - Modern Theme Module
-Dark theme with Gold/Amber accent colors.
+Kollect-It Product Manager - Professional SaaS Theme
+Modern, high-contrast dark theme with vibrant teal accents.
 
-Color Scheme: Dark charcoal background with warm gold accents
-- Professional, high-end antiques/collectibles aesthetic
-- Good contrast and readability
-- Consistent visual hierarchy
+Design Philosophy:
+- Deep charcoal backgrounds with clear visual hierarchy
+- High-contrast text for excellent readability
+- Vibrant teal/cyan accent for primary actions
+- Clean spacing and modern rounded corners
+- Subtle shadows and glows for depth
 """
 
 
 class ModernPalette:
-    """Modern dark theme with gold/amber accents."""
+    """
+    Professional SaaS Dashboard Theme
+    High contrast, modern, accessible design
+    """
 
     # ============================================
-    # BACKGROUNDS - Deep charcoal tones
+    # BACKGROUNDS - Deep charcoal with clear layers
     # ============================================
-    BACKGROUND = "#1a1b26"       # Main background (deep navy-black)
-    SURFACE = "#24283b"          # Card/panel background
-    SURFACE_LIGHT = "#2f3349"    # Hover states, elevated surfaces
-    SURFACE_DARK = "#16161e"     # Deeper areas (log, code blocks)
+    BACKGROUND = "#0f0f0f"          # Deepest background (almost black)
+    SURFACE = "#1a1a1a"             # Card/panel background
+    SURFACE_ELEVATED = "#242424"    # Elevated elements (inputs, dropdowns)
+    SURFACE_HOVER = "#2d2d2d"       # Hover states
+    SURFACE_ACTIVE = "#333333"      # Active/pressed states
 
     # ============================================
-    # PRIMARY ACCENT - Gold/Amber (warm, premium feel)
+    # PRIMARY ACCENT - Vibrant Teal/Cyan
     # ============================================
-    PRIMARY = "#f59e0b"          # Main gold accent
-    PRIMARY_DARK = "#d97706"     # Darker gold (hover)
-    PRIMARY_LIGHT = "#fbbf24"    # Lighter gold (highlights)
+    PRIMARY = "#00d4aa"             # Main accent (vibrant teal)
+    PRIMARY_DARK = "#00b894"        # Darker teal (hover)
+    PRIMARY_LIGHT = "#55efc4"       # Lighter teal (highlights)
+    PRIMARY_GLOW = "rgba(0, 212, 170, 0.3)"  # Focus glow
 
     # ============================================
-    # SECONDARY ACCENT - Warm orange
+    # SECONDARY ACCENT - Electric Blue
     # ============================================
-    SECONDARY = "#ea580c"        # Orange accent
-    SECONDARY_DARK = "#c2410c"   # Darker orange
+    SECONDARY = "#0984e3"           # Electric blue
+    SECONDARY_DARK = "#0770c2"      # Darker blue
+    SECONDARY_LIGHT = "#74b9ff"     # Lighter blue
 
     # ============================================
-    # TEXT COLORS
+    # TEXT COLORS - High contrast for readability
     # ============================================
-    TEXT = "#e2e8f0"             # Primary text (soft white)
-    TEXT_SECONDARY = "#94a3b8"   # Secondary text (muted)
-    TEXT_MUTED = "#64748b"       # Muted/placeholder text
-    TEXT_DARK = "#1e293b"        # Dark text (on light backgrounds)
+    TEXT_PRIMARY = "#ffffff"        # Pure white for headers
+    TEXT_SECONDARY = "#e0e0e0"      # Light gray for labels
+    TEXT_MUTED = "#9e9e9e"          # Muted gray for hints
+    TEXT_DISABLED = "#616161"       # Disabled text
+    TEXT_DARK = "#121212"           # Dark text on light backgrounds
 
     # ============================================
-    # BORDERS
+    # BORDERS - Subtle definition
     # ============================================
-    BORDER = "#3b4261"           # Standard border
-    BORDER_LIGHT = "#4c5578"     # Lighter border
-    BORDER_FOCUS = "#f59e0b"     # Focus state (gold)
-
-    # ============================================
-    # STATUS COLORS
-    # ============================================
-    SUCCESS = "#22c55e"          # Green
-    SUCCESS_DARK = "#16a34a"
-    WARNING = "#eab308"          # Yellow
-    ERROR = "#ef4444"            # Red
-    ERROR_DARK = "#dc2626"
-    INFO = "#3b82f6"             # Blue
+    BORDER = "#333333"              # Standard border
+    BORDER_LIGHT = "#444444"        # Lighter border
+    BORDER_FOCUS = "#00d4aa"        # Focus border (teal)
 
     # ============================================
-    # BUTTON COLORS - Clear hierarchy
+    # STATUS COLORS - Clear and distinct
     # ============================================
-    # Primary buttons (main actions)
-    BTN_PRIMARY_BG = "#f59e0b"
-    BTN_PRIMARY_HOVER = "#d97706"
-    BTN_PRIMARY_TEXT = "#1a1b26"
+    SUCCESS = "#00b894"             # Green
+    SUCCESS_BG = "rgba(0, 184, 148, 0.15)"
+    WARNING = "#fdcb6e"             # Yellow
+    WARNING_BG = "rgba(253, 203, 110, 0.15)"
+    ERROR = "#e74c3c"               # Red
+    ERROR_BG = "rgba(231, 76, 60, 0.15)"
+    INFO = "#74b9ff"                # Blue
+    INFO_BG = "rgba(116, 185, 255, 0.15)"
 
-    # Secondary buttons (supporting actions)
-    BTN_SECONDARY_BG = "#3b4261"
-    BTN_SECONDARY_HOVER = "#4c5578"
-    BTN_SECONDARY_TEXT = "#e2e8f0"
+    # ============================================
+    # BUTTON COLORS
+    # ============================================
+    BTN_PRIMARY_BG = "#00d4aa"
+    BTN_PRIMARY_HOVER = "#00b894"
+    BTN_PRIMARY_TEXT = "#121212"
 
-    # Tertiary/Utility buttons (minor actions)
-    BTN_UTILITY_BG = "transparent"
-    BTN_UTILITY_BORDER = "#3b4261"
-    BTN_UTILITY_HOVER = "#2f3349"
+    BTN_SECONDARY_BG = "#242424"
+    BTN_SECONDARY_HOVER = "#333333"
+    BTN_SECONDARY_BORDER = "#444444"
 
-    # Success button (Upload, Export)
-    BTN_SUCCESS_BG = "#22c55e"
-    BTN_SUCCESS_HOVER = "#16a34a"
+    BTN_GHOST_BG = "transparent"
+    BTN_GHOST_HOVER = "#2d2d2d"
+    BTN_GHOST_BORDER = "#444444"
 
-    # Danger button
-    BTN_DANGER_BG = "#ef4444"
-    BTN_DANGER_HOVER = "#dc2626"
+    BTN_SUCCESS_BG = "#00b894"
+    BTN_SUCCESS_HOVER = "#00a383"
+    
+    BTN_DANGER_BG = "#e74c3c"
+    BTN_DANGER_HOVER = "#c0392b"
 
     @classmethod
     def get_color(cls, name: str) -> str:
-        """Get a color value by name from the palette."""
-        return getattr(cls, name.upper(), cls.TEXT)
+        """Get a color value by name."""
+        return getattr(cls, name.upper(), cls.TEXT_PRIMARY)
 
     @classmethod
     def get_stylesheet(cls) -> str:
         return f"""
             /* ============================================
-               GLOBAL STYLES
+               GLOBAL FOUNDATION
+               Clean, modern base styles
                ============================================ */
-            QMainWindow, QWidget {{
+            
+            * {{
+                font-family: 'Segoe UI', 'Inter', 'SF Pro Display', -apple-system, sans-serif;
+            }}
+            
+            QMainWindow {{
                 background-color: {cls.BACKGROUND};
-                color: {cls.TEXT};
-                font-family: 'Segoe UI', 'SF Pro Display', Arial, sans-serif;
+            }}
+            
+            QWidget {{
+                background-color: transparent;
+                color: {cls.TEXT_PRIMARY};
                 font-size: 14px;
+                outline: none;
             }}
 
             /* ============================================
-               GROUP BOXES - Section containers
+               GROUP BOXES - Card-style containers
                ============================================ */
             QGroupBox {{
                 background-color: {cls.SURFACE};
                 border: 1px solid {cls.BORDER};
-                border-radius: 8px;
-                margin-top: 14px;
-                padding: 14px;
-                padding-top: 24px;
-                font-weight: 600;
+                border-radius: 10px;
+                margin-top: 20px;
+                padding: 20px;
+                padding-top: 35px;
                 font-size: 14px;
             }}
 
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 14px;
-                top: 4px;
-                padding: 0 10px;
-                color: {cls.PRIMARY};
-                font-size: 14px;
-                font-weight: bold;
+                left: 16px;
+                top: 6px;
+                padding: 4px 12px;
+                color: {cls.TEXT_PRIMARY};
+                font-size: 15px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+                background-color: transparent;
             }}
 
             /* ============================================
-               BUTTONS - Primary (Gold - Main Actions)
+               BUTTONS - Clear visual hierarchy
                ============================================ */
+            
+            /* Default button style (secondary) */
             QPushButton {{
                 background-color: {cls.BTN_SECONDARY_BG};
-                color: {cls.TEXT};
-                border: 1px solid {cls.BORDER};
+                color: {cls.TEXT_PRIMARY};
+                border: 1px solid {cls.BTN_SECONDARY_BORDER};
                 border-radius: 6px;
-                padding: 10px 20px;
+                padding: 12px 24px;
                 font-weight: 600;
                 font-size: 14px;
-                min-height: 20px;
+                min-height: 22px;
             }}
 
             QPushButton:hover {{
@@ -146,75 +165,113 @@ class ModernPalette:
             }}
 
             QPushButton:pressed {{
-                background-color: {cls.SURFACE_DARK};
+                background-color: {cls.SURFACE_ACTIVE};
             }}
 
             QPushButton:disabled {{
                 background-color: {cls.SURFACE};
-                color: {cls.TEXT_MUTED};
+                color: {cls.TEXT_DISABLED};
                 border-color: {cls.BORDER};
             }}
 
-            /* Primary action buttons - Gold */
+            /* PRIMARY BUTTONS - Vibrant teal, main actions */
             QPushButton[primary="true"],
-            QPushButton#primaryButton {{
-                background-color: {cls.PRIMARY};
-                color: {cls.TEXT_DARK};
+            QPushButton#generateDescBtn,
+            QPushButton#generateValuationBtn,
+            QPushButton#analyzeImagesBtn {{
+                background-color: {cls.BTN_PRIMARY_BG};
+                color: {cls.BTN_PRIMARY_TEXT};
                 border: none;
-                font-weight: bold;
+                font-weight: 700;
             }}
 
             QPushButton[primary="true"]:hover,
-            QPushButton#primaryButton:hover {{
+            QPushButton#generateDescBtn:hover,
+            QPushButton#generateValuationBtn:hover,
+            QPushButton#analyzeImagesBtn:hover {{
+                background-color: {cls.BTN_PRIMARY_HOVER};
+            }}
+
+            QPushButton[primary="true"]:pressed,
+            QPushButton#generateDescBtn:pressed,
+            QPushButton#generateValuationBtn:pressed,
+            QPushButton#analyzeImagesBtn:pressed {{
                 background-color: {cls.PRIMARY_DARK};
             }}
 
-            /* Success buttons - Green */
+            /* SUCCESS BUTTONS - Green, positive actions */
             QPushButton[success="true"],
-            QPushButton#successButton {{
-                background-color: {cls.SUCCESS};
+            QPushButton#uploadBtn,
+            QPushButton#exportBtn,
+            QPushButton#newProductBtn {{
+                background-color: {cls.BTN_SUCCESS_BG};
                 color: {cls.TEXT_DARK};
                 border: none;
-                font-weight: bold;
+                font-weight: 700;
             }}
 
             QPushButton[success="true"]:hover,
-            QPushButton#successButton:hover {{
-                background-color: {cls.SUCCESS_DARK};
+            QPushButton#uploadBtn:hover,
+            QPushButton#exportBtn:hover,
+            QPushButton#newProductBtn:hover {{
+                background-color: {cls.BTN_SUCCESS_HOVER};
             }}
 
-            /* Danger buttons - Red */
-            QPushButton[danger="true"],
-            QPushButton#dangerButton {{
-                background-color: {cls.ERROR};
+            /* GHOST/OUTLINE BUTTONS - Secondary actions */
+            QPushButton[ghost="true"],
+            QPushButton#cropBtn,
+            QPushButton#removeBgBtn,
+            QPushButton#optimizeBtn {{
+                background-color: transparent;
+                color: {cls.TEXT_SECONDARY};
+                border: 1px solid {cls.BTN_GHOST_BORDER};
+            }}
+
+            QPushButton[ghost="true"]:hover,
+            QPushButton#cropBtn:hover,
+            QPushButton#removeBgBtn:hover,
+            QPushButton#optimizeBtn:hover {{
+                background-color: {cls.BTN_GHOST_HOVER};
+                color: {cls.TEXT_PRIMARY};
+                border-color: {cls.PRIMARY};
+            }}
+
+            /* DANGER BUTTONS */
+            QPushButton[danger="true"] {{
+                background-color: {cls.BTN_DANGER_BG};
                 color: white;
                 border: none;
             }}
 
-            QPushButton[danger="true"]:hover,
-            QPushButton#dangerButton:hover {{
-                background-color: {cls.ERROR_DARK};
+            QPushButton[danger="true"]:hover {{
+                background-color: {cls.BTN_DANGER_HOVER};
             }}
 
             /* ============================================
-               INPUT FIELDS
+               INPUT FIELDS - High contrast with focus glow
                ============================================ */
-            QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
-                background-color: {cls.SURFACE_DARK};
+            QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox {{
+                background-color: {cls.SURFACE_ELEVATED};
                 border: 1px solid {cls.BORDER};
                 border-radius: 6px;
-                padding: 10px 12px;
-                color: {cls.TEXT};
+                padding: 12px 14px;
+                color: {cls.TEXT_PRIMARY};
                 font-size: 14px;
-                min-height: 20px;
+                min-height: 22px;
                 selection-background-color: {cls.PRIMARY};
                 selection-color: {cls.TEXT_DARK};
             }}
 
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, 
-            QDoubleSpinBox:focus, QComboBox:focus {{
+            QLineEdit:hover, QTextEdit:hover, 
+            QSpinBox:hover, QDoubleSpinBox:hover {{
+                border-color: {cls.BORDER_LIGHT};
+            }}
+
+            QLineEdit:focus, QTextEdit:focus, 
+            QSpinBox:focus, QDoubleSpinBox:focus {{
                 border: 2px solid {cls.PRIMARY};
-                background-color: {cls.SURFACE};
+                padding: 11px 13px;
+                background-color: {cls.SURFACE_HOVER};
             }}
 
             QLineEdit::placeholder, QTextEdit::placeholder {{
@@ -222,15 +279,32 @@ class ModernPalette:
             }}
 
             /* ============================================
-               COMBO BOX - Dropdown styling
+               COMBO BOX - Modern dropdown
                ============================================ */
             QComboBox {{
-                padding-right: 30px;
+                background-color: {cls.SURFACE_ELEVATED};
+                border: 1px solid {cls.BORDER};
+                border-radius: 6px;
+                padding: 12px 14px;
+                padding-right: 35px;
+                color: {cls.TEXT_PRIMARY};
+                font-size: 14px;
+                min-height: 22px;
+            }}
+
+            QComboBox:hover {{
+                border-color: {cls.BORDER_LIGHT};
+            }}
+
+            QComboBox:focus {{
+                border: 2px solid {cls.PRIMARY};
+                padding: 11px 13px;
+                padding-right: 34px;
             }}
 
             QComboBox::drop-down {{
                 border: none;
-                width: 30px;
+                width: 35px;
                 background: transparent;
             }}
 
@@ -239,28 +313,31 @@ class ModernPalette:
                 border-left: 5px solid transparent;
                 border-right: 5px solid transparent;
                 border-top: 6px solid {cls.TEXT_SECONDARY};
-                margin-right: 10px;
+                margin-right: 12px;
+            }}
+
+            QComboBox::down-arrow:on {{
+                border-top: 6px solid {cls.PRIMARY};
             }}
 
             QComboBox QAbstractItemView {{
                 background-color: {cls.SURFACE};
                 border: 1px solid {cls.BORDER};
-                border-radius: 6px;
-                color: {cls.TEXT};
-                selection-background-color: {cls.PRIMARY};
-                selection-color: {cls.TEXT_DARK};
-                padding: 4px;
+                border-radius: 8px;
+                color: {cls.TEXT_PRIMARY};
+                padding: 6px;
                 outline: none;
             }}
 
             QComboBox QAbstractItemView::item {{
-                padding: 8px 12px;
-                min-height: 28px;
+                padding: 10px 14px;
+                min-height: 32px;
                 border-radius: 4px;
+                margin: 2px;
             }}
 
             QComboBox QAbstractItemView::item:hover {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.SURFACE_HOVER};
             }}
 
             QComboBox QAbstractItemView::item:selected {{
@@ -272,19 +349,17 @@ class ModernPalette:
                SPIN BOXES - Number inputs
                ============================================ */
             QSpinBox::up-button, QDoubleSpinBox::up-button {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.SURFACE_HOVER};
                 border: none;
                 border-top-right-radius: 5px;
-                width: 22px;
-                subcontrol-position: top right;
+                width: 24px;
             }}
 
             QSpinBox::down-button, QDoubleSpinBox::down-button {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.SURFACE_HOVER};
                 border: none;
                 border-bottom-right-radius: 5px;
-                width: 22px;
-                subcontrol-position: bottom right;
+                width: 24px;
             }}
 
             QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
@@ -307,102 +382,74 @@ class ModernPalette:
             }}
 
             /* ============================================
-               PROGRESS BAR
+               PROGRESS BAR - Thin, modern, gradient
                ============================================ */
             QProgressBar {{
-                background-color: {cls.SURFACE_DARK};
+                background-color: {cls.SURFACE_ELEVATED};
                 border: none;
-                border-radius: 6px;
-                height: 14px;
+                border-radius: 4px;
+                height: 8px;
                 text-align: center;
-                font-size: 12px;
-                font-weight: bold;
-                color: {cls.TEXT};
+                font-size: 0px;
             }}
 
             QProgressBar::chunk {{
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:0,
                     stop:0 {cls.PRIMARY_DARK},
-                    stop:1 {cls.PRIMARY}
+                    stop:0.5 {cls.PRIMARY},
+                    stop:1 {cls.PRIMARY_LIGHT}
                 );
-                border-radius: 6px;
-            }}
-
-            /* ============================================
-               LIST WIDGET
-               ============================================ */
-            QListWidget {{
-                background-color: {cls.SURFACE_DARK};
-                border: 1px solid {cls.BORDER};
-                border-radius: 6px;
-                padding: 4px;
-                outline: none;
-            }}
-
-            QListWidget::item {{
-                padding: 10px;
                 border-radius: 4px;
-                margin: 2px 0;
-            }}
-
-            QListWidget::item:selected {{
-                background-color: {cls.PRIMARY};
-                color: {cls.TEXT_DARK};
-            }}
-
-            QListWidget::item:hover:!selected {{
-                background-color: {cls.SURFACE_LIGHT};
             }}
 
             /* ============================================
-               TABS
+               TABS - Clean underlined style
                ============================================ */
             QTabWidget::pane {{
                 background-color: {cls.SURFACE};
                 border: 1px solid {cls.BORDER};
-                border-radius: 8px;
+                border-radius: 10px;
                 top: -1px;
             }}
 
             QTabBar::tab {{
                 background-color: transparent;
-                color: {cls.TEXT_SECONDARY};
-                padding: 12px 24px;
-                margin-right: 2px;
+                color: {cls.TEXT_MUTED};
+                padding: 14px 28px;
+                margin-right: 4px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
                 font-size: 14px;
                 font-weight: 600;
-                border: 1px solid transparent;
-                border-bottom: none;
+                border: none;
+                border-bottom: 3px solid transparent;
+            }}
+
+            QTabBar::tab:hover {{
+                color: {cls.TEXT_SECONDARY};
+                background-color: {cls.SURFACE_HOVER};
             }}
 
             QTabBar::tab:selected {{
-                background-color: {cls.SURFACE};
                 color: {cls.PRIMARY};
-                border-color: {cls.BORDER};
-            }}
-
-            QTabBar::tab:hover:!selected {{
-                background-color: {cls.SURFACE_LIGHT};
-                color: {cls.TEXT};
+                background-color: {cls.SURFACE};
+                border-bottom: 3px solid {cls.PRIMARY};
             }}
 
             /* ============================================
-               SCROLL BARS
+               SCROLL BARS - Minimal, modern
                ============================================ */
             QScrollBar:vertical {{
-                background-color: {cls.SURFACE_DARK};
-                width: 12px;
-                border-radius: 6px;
-                margin: 2px;
+                background-color: transparent;
+                width: 10px;
+                margin: 4px 2px;
             }}
 
             QScrollBar::handle:vertical {{
                 background-color: {cls.BORDER};
-                border-radius: 6px;
-                min-height: 30px;
+                border-radius: 5px;
+                min-height: 40px;
             }}
 
             QScrollBar::handle:vertical:hover {{
@@ -413,17 +460,20 @@ class ModernPalette:
                 height: 0px;
             }}
 
-            QScrollBar::horizontal {{
-                background-color: {cls.SURFACE_DARK};
-                height: 12px;
-                border-radius: 6px;
-                margin: 2px;
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+
+            QScrollBar:horizontal {{
+                background-color: transparent;
+                height: 10px;
+                margin: 2px 4px;
             }}
 
             QScrollBar::handle:horizontal {{
                 background-color: {cls.BORDER};
-                border-radius: 6px;
-                min-width: 30px;
+                border-radius: 5px;
+                min-width: 40px;
             }}
 
             QScrollBar::handle:horizontal:hover {{
@@ -435,18 +485,19 @@ class ModernPalette:
             }}
 
             /* ============================================
-               LABELS
+               LABELS - Clear hierarchy
                ============================================ */
             QLabel {{
-                color: {cls.TEXT};
+                color: {cls.TEXT_SECONDARY};
                 font-size: 14px;
+                background: transparent;
             }}
 
             /* ============================================
                CHECKBOXES
                ============================================ */
             QCheckBox {{
-                color: {cls.TEXT};
+                color: {cls.TEXT_SECONDARY};
                 spacing: 10px;
                 font-size: 14px;
             }}
@@ -456,15 +507,15 @@ class ModernPalette:
                 height: 20px;
                 border-radius: 4px;
                 border: 2px solid {cls.BORDER};
-                background-color: {cls.SURFACE_DARK};
+                background-color: {cls.SURFACE_ELEVATED};
+            }}
+
+            QCheckBox::indicator:hover {{
+                border-color: {cls.PRIMARY};
             }}
 
             QCheckBox::indicator:checked {{
                 background-color: {cls.PRIMARY};
-                border-color: {cls.PRIMARY};
-            }}
-
-            QCheckBox::indicator:hover {{
                 border-color: {cls.PRIMARY};
             }}
 
@@ -473,7 +524,7 @@ class ModernPalette:
                ============================================ */
             QSlider::groove:horizontal {{
                 height: 6px;
-                background-color: {cls.SURFACE_DARK};
+                background-color: {cls.SURFACE_ELEVATED};
                 border-radius: 3px;
             }}
 
@@ -483,6 +534,7 @@ class ModernPalette:
                 margin: -6px 0;
                 background-color: {cls.PRIMARY};
                 border-radius: 9px;
+                border: 2px solid {cls.PRIMARY_DARK};
             }}
 
             QSlider::handle:horizontal:hover {{
@@ -490,51 +542,90 @@ class ModernPalette:
             }}
 
             QSlider::sub-page:horizontal {{
-                background-color: {cls.PRIMARY};
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {cls.PRIMARY_DARK}, 
+                    stop:1 {cls.PRIMARY}
+                );
                 border-radius: 3px;
             }}
 
             /* ============================================
-               STATUS BAR
+               LIST WIDGET
                ============================================ */
-            QStatusBar {{
-                background-color: {cls.SURFACE_DARK};
-                color: {cls.TEXT_SECONDARY};
-                font-size: 13px;
-                padding: 6px 12px;
-                border-top: 1px solid {cls.BORDER};
+            QListWidget {{
+                background-color: {cls.SURFACE_ELEVATED};
+                border: 1px solid {cls.BORDER};
+                border-radius: 8px;
+                padding: 6px;
+                outline: none;
+            }}
+
+            QListWidget::item {{
+                padding: 12px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }}
+
+            QListWidget::item:selected {{
+                background-color: {cls.PRIMARY};
+                color: {cls.TEXT_DARK};
+            }}
+
+            QListWidget::item:hover:!selected {{
+                background-color: {cls.SURFACE_HOVER};
             }}
 
             /* ============================================
-               MENU BAR
+               TEXT EDIT - Activity Log styling
+               ============================================ */
+            QTextEdit {{
+                background-color: {cls.SURFACE_ELEVATED};
+                border: 1px solid {cls.BORDER};
+                border-radius: 8px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+            }}
+
+            QTextEdit#activityLog, QTextEdit[readOnly="true"] {{
+                background-color: #0d0d0d;
+                border: 1px solid {cls.BORDER};
+                font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+                font-size: 13px;
+                color: {cls.TEXT_SECONDARY};
+            }}
+
+            /* ============================================
+               MENU BAR & MENUS
                ============================================ */
             QMenuBar {{
                 background-color: {cls.SURFACE};
-                color: {cls.TEXT};
-                padding: 4px;
+                color: {cls.TEXT_PRIMARY};
+                padding: 6px 8px;
                 font-size: 14px;
                 border-bottom: 1px solid {cls.BORDER};
             }}
 
             QMenuBar::item {{
-                padding: 8px 14px;
-                border-radius: 4px;
+                padding: 8px 16px;
+                border-radius: 6px;
             }}
 
             QMenuBar::item:selected {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.SURFACE_HOVER};
             }}
 
             QMenu {{
                 background-color: {cls.SURFACE};
                 border: 1px solid {cls.BORDER};
-                border-radius: 8px;
-                padding: 6px;
+                border-radius: 10px;
+                padding: 8px;
             }}
 
             QMenu::item {{
                 padding: 10px 24px;
-                border-radius: 4px;
+                border-radius: 6px;
             }}
 
             QMenu::item:selected {{
@@ -545,7 +636,22 @@ class ModernPalette:
             QMenu::separator {{
                 height: 1px;
                 background-color: {cls.BORDER};
-                margin: 6px 10px;
+                margin: 8px 12px;
+            }}
+
+            /* ============================================
+               STATUS BAR
+               ============================================ */
+            QStatusBar {{
+                background-color: {cls.SURFACE};
+                color: {cls.TEXT_MUTED};
+                font-size: 13px;
+                padding: 8px 16px;
+                border-top: 1px solid {cls.BORDER};
+            }}
+
+            QStatusBar QLabel {{
+                color: {cls.TEXT_MUTED};
             }}
 
             /* ============================================
@@ -554,21 +660,22 @@ class ModernPalette:
             QToolBar {{
                 background-color: {cls.SURFACE};
                 border: none;
-                spacing: 8px;
-                padding: 8px;
+                spacing: 10px;
+                padding: 10px;
                 border-bottom: 1px solid {cls.BORDER};
             }}
 
             QToolBar QToolButton {{
                 background-color: transparent;
-                color: {cls.TEXT};
-                padding: 8px 14px;
+                color: {cls.TEXT_SECONDARY};
+                padding: 10px 16px;
                 border-radius: 6px;
                 font-size: 14px;
             }}
 
             QToolBar QToolButton:hover {{
-                background-color: {cls.SURFACE_LIGHT};
+                background-color: {cls.SURFACE_HOVER};
+                color: {cls.TEXT_PRIMARY};
             }}
 
             QToolBar QToolButton:pressed {{
@@ -577,36 +684,14 @@ class ModernPalette:
             }}
 
             /* ============================================
-               TEXT EDIT - Activity log, descriptions
-               ============================================ */
-            QTextEdit {{
-                font-size: 14px;
-                line-height: 1.5;
-            }}
-
-            QTextEdit[readOnly="true"] {{
-                background-color: {cls.SURFACE_DARK};
-            }}
-
-            /* ============================================
-               FORM LABELS
-               ============================================ */
-            QFormLayout QLabel {{
-                font-size: 14px;
-                font-weight: 500;
-                color: {cls.TEXT_SECONDARY};
-                min-width: 100px;
-            }}
-
-            /* ============================================
                TOOLTIPS
                ============================================ */
             QToolTip {{
                 background-color: {cls.SURFACE};
-                color: {cls.TEXT};
+                color: {cls.TEXT_PRIMARY};
                 border: 1px solid {cls.BORDER};
                 border-radius: 6px;
-                padding: 8px 12px;
+                padding: 10px 14px;
                 font-size: 13px;
             }}
 
@@ -623,11 +708,16 @@ class ModernPalette:
             }}
 
             /* ============================================
-               FRAMES (Drop Zone, Image Grid)
+               FRAMES
                ============================================ */
             QFrame {{
                 background-color: {cls.SURFACE};
-                border-radius: 8px;
+                border-radius: 10px;
+            }}
+
+            QFrame[frameShape="4"], QFrame[frameShape="5"] {{
+                background-color: {cls.BORDER};
+                max-height: 1px;
             }}
 
             /* ============================================
@@ -638,15 +728,48 @@ class ModernPalette:
             }}
 
             QDialogButtonBox QPushButton {{
-                min-width: 80px;
+                min-width: 90px;
+            }}
+
+            /* ============================================
+               MESSAGE BOX
+               ============================================ */
+            QMessageBox {{
+                background-color: {cls.SURFACE};
+            }}
+
+            QMessageBox QLabel {{
+                color: {cls.TEXT_PRIMARY};
+            }}
+
+            /* ============================================
+               SPLITTER
+               ============================================ */
+            QSplitter::handle {{
+                background-color: {cls.BORDER};
+            }}
+
+            QSplitter::handle:horizontal {{
+                width: 2px;
+                margin: 0 8px;
+            }}
+
+            QSplitter::handle:vertical {{
+                height: 2px;
+                margin: 8px 0;
+            }}
+
+            QSplitter::handle:hover {{
+                background-color: {cls.PRIMARY};
             }}
         """
 
 
-# Backwards compatibility alias
+# Backwards compatibility
 DarkPalette = ModernPalette
+SURFACE_ELEVATED = ModernPalette.SURFACE_ELEVATED
 
 
 def get_color(name: str) -> str:
     """Get a color value by name from the palette."""
-    return getattr(ModernPalette, name.upper(), ModernPalette.TEXT)
+    return getattr(ModernPalette, name.upper(), ModernPalette.TEXT_PRIMARY)
