@@ -51,7 +51,7 @@ class DarkPalette:
                 background-color: $BACKGROUND$;
                 color: $TEXT$;
                 font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             /* GROUP BOXES */
@@ -63,7 +63,7 @@ class DarkPalette:
                 padding: 12px;
                 padding-top: 20px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QGroupBox::title {
@@ -72,7 +72,7 @@ class DarkPalette:
                 top: 2px;
                 padding: 0 8px;
                 color: $PRIMARY$;
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: bold;
             }
 
@@ -84,7 +84,7 @@ class DarkPalette:
                 border-radius: 4px;
                 padding: 8px 16px;
                 font-weight: 500;
-                font-size: 13px;
+                font-size: 14px;
                 min-height: 18px;
             }
 
@@ -151,7 +151,7 @@ class DarkPalette:
                 border-radius: 4px;
                 padding: 6px 10px;
                 color: $TEXT$;
-                font-size: 13px;
+                font-size: 14px;
                 min-height: 16px;
             }
 
@@ -190,7 +190,7 @@ class DarkPalette:
                 color: $TEXT$;
                 selection-background-color: $SURFACE_LIGHT$;
                 padding: 4px;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QComboBox QAbstractItemView::item {
@@ -237,7 +237,7 @@ class DarkPalette:
                 border: 1px solid $BORDER$;
                 border-radius: 4px;
                 padding: 4px;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QListWidget::item {
@@ -270,7 +270,7 @@ class DarkPalette:
                 margin-right: 2px;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: bold;
                 border: 1px solid transparent;
                 border-bottom: none;
@@ -326,14 +326,14 @@ class DarkPalette:
             /* LABELS */
             QLabel {
                 color: $TEXT$;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             /* CHECKBOXES */
             QCheckBox {
                 color: $TEXT$;
                 spacing: 8px;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QCheckBox::indicator {
@@ -391,7 +391,7 @@ class DarkPalette:
                 background-color: $SURFACE$;
                 color: $TEXT$;
                 padding: 4px;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QMenuBar::item {
@@ -408,7 +408,7 @@ class DarkPalette:
                 border: 1px solid $BORDER$;
                 border-radius: 6px;
                 padding: 4px;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QMenu::item {
@@ -440,7 +440,7 @@ class DarkPalette:
                 color: $TEXT$;
                 padding: 6px 12px;
                 border-radius: 4px;
-                font-size: 13px;
+                font-size: 14px;
             }
 
             QToolBar QToolButton:hover {
@@ -449,20 +449,20 @@ class DarkPalette:
 
             /* TEXT EDIT */
             QTextEdit {
-                font-size: 13px;
+                font-size: 14px;
                 line-height: 1.4;
             }
 
             QTextEdit#activityLog {
                 background-color: #0f172a;
                 font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 11px;
+                font-size: 12px;
                 border: 1px solid $BORDER$;
             }
 
             /* FORM LABELS */
             QFormLayout QLabel {
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: 500;
                 color: $TEXT_SECONDARY$;
                 min-width: 80px;

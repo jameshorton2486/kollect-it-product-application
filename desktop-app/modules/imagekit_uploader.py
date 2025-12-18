@@ -41,6 +41,21 @@ class ImageKitUploader:
         # Retry settings
         self.max_retries = 3
         self.retry_delay = 2  # seconds
+    
+    def is_configured(self) -> bool:
+        """Check if ImageKit is properly configured."""
+        return bool(self.private_key and self.private_key.strip())
+    
+    def get_configuration_status(self) -> dict:
+        """Get detailed configuration status for debugging."""
+        return {
+            "public_key_set": bool(self.public_key),
+            "private_key_set": bool(self.private_key),
+            "url_endpoint_set": bool(self.url_endpoint),
+            "public_key_length": len(self.public_key) if self.public_key else 0,
+            "private_key_length": len(self.private_key) if self.private_key else 0,
+            "ready": self.is_configured()
+        }
         
     def _get_auth(self) -> HTTPBasicAuth:
         """Get HTTP Basic Auth for ImageKit API."""
@@ -64,7 +79,22 @@ class ImageKitUploader:
             
         Returns:
             Dictionary with upload result including URL, or None on failure
+            
+        Raises:
+            ValueError: If ImageKit is not configured
+            FileNotFoundError: If the file doesn't exist
         """
+        # ============================================================
+        # Issue 4: Validate configuration before attempting upload
+        # ============================================================
+        if not self.is_configured():
+            raise ValueError(
+                "ImageKit private key not configured.\n\n"
+                "Please add IMAGEKIT_PRIVATE_KEY to your .env file:\n"
+                "  IMAGEKIT_PRIVATE_KEY=private_xxxxx\n\n"
+                "Get your keys from: https://imagekit.io/dashboard/developer/api-keys"
+            )
+        
         path = Path(file_path)
         
         if not path.exists():
