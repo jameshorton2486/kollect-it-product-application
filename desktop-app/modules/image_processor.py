@@ -2,13 +2,18 @@
 """
 Image Processor Module
 Handles image optimization, resizing, WebP conversion, and EXIF stripping.
+
+Updated: Deletes original files after successful optimization.
 """
 
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from PIL import Image, ImageOps, ExifTags
 import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ImageProcessor:
@@ -21,6 +26,7 @@ class ImageProcessor:
     - Strip EXIF metadata
     - Optimize file size with quality settings
     - Apply color profile normalization
+    - DELETE ORIGINALS after successful optimization (optional)
     """
     
     def __init__(self, config: dict):
@@ -42,6 +48,11 @@ class ImageProcessor:
         Args:
             input_path: Path to the source image
             options: Optional processing options to override config
+                - max_dimension: Max width/height (default: 2400)
+                - quality: WebP quality 1-100 (default: 88)
+                - strip_exif: Remove EXIF data (default: True)
+                - output_format: Output format (default: "webp")
+                - delete_originals: Delete source file after success (default: True)
             
         Returns:
             Dictionary with processed image info
@@ -53,6 +64,7 @@ class ImageProcessor:
         quality = options.get("quality", self.webp_quality)
         strip = options.get("strip_exif", self.strip_exif)
         output_format = options.get("output_format", "webp")
+        delete_originals = options.get("delete_originals", True)  # NEW: Default True
         
         input_path = Path(input_path)
         
@@ -63,6 +75,9 @@ class ImageProcessor:
         # Generate output filename
         output_name = input_path.stem + f".{output_format}"
         output_path = output_dir / output_name
+        
+        # Track if we should delete original
+        original_deleted = False
         
         # Open and process image
         with Image.open(input_path) as img:
@@ -111,7 +126,23 @@ class ImageProcessor:
             
             # Generate thumbnail
             thumb_path = self._create_thumbnail(img, output_dir, input_path.stem)
-            
+        
+        # ============================================
+        # DELETE ORIGINAL after successful optimization
+        # ============================================
+        if delete_originals and output_path.exists():
+            try:
+                input_path.unlink()
+                original_deleted = True
+                logger.info(f"Deleted original: {input_path.name}")
+                print(f"[OPTIMIZE] 🗑 Deleted original: {input_path.name}")
+            except PermissionError as e:
+                logger.warning(f"Permission denied deleting {input_path.name}: {e}")
+                print(f"[OPTIMIZE] ⚠ Could not delete (in use?): {input_path.name}")
+            except Exception as e:
+                logger.warning(f"Could not delete original {input_path.name}: {e}")
+                print(f"[OPTIMIZE] ⚠ Delete failed: {input_path.name} - {e}")
+        
         return {
             "input_path": str(input_path),
             "output_path": str(output_path),
@@ -123,7 +154,8 @@ class ImageProcessor:
             "original_file_size": original_file_size,
             "new_file_size": new_file_size,
             "compression_ratio": round(new_file_size / original_file_size, 3),
-            "savings_percent": round((1 - new_file_size / original_file_size) * 100, 1)
+            "savings_percent": round((1 - new_file_size / original_file_size) * 100, 1),
+            "original_deleted": original_deleted  # NEW: Track deletion status
         }
     
     def _resize_image(self, img: Image.Image, max_dim: int) -> Image.Image:
@@ -172,12 +204,13 @@ class ImageProcessor:
         
         Args:
             folder_path: Path to folder containing images
-            options: Processing options
+            options: Processing options (including delete_originals)
             
         Returns:
             Dictionary with batch processing results
         """
         folder = Path(folder_path)
+        options = options or {}
         
         image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.bmp', '.gif'}
         images = [
@@ -189,6 +222,7 @@ class ImageProcessor:
             "total": len(images),
             "processed": 0,
             "failed": 0,
+            "deleted": 0,  # NEW: Track deleted count
             "images": [],
             "errors": [],
             "total_original_size": 0,
@@ -202,6 +236,11 @@ class ImageProcessor:
                 results["processed"] += 1
                 results["total_original_size"] += result["original_file_size"]
                 results["total_new_size"] += result["new_file_size"]
+                
+                # Track deletions
+                if result.get("original_deleted", False):
+                    results["deleted"] += 1
+                    
             except Exception as e:
                 results["failed"] += 1
                 results["errors"].append({
@@ -216,6 +255,9 @@ class ImageProcessor:
             )
         else:
             results["total_savings_percent"] = 0
+        
+        # Log summary
+        logger.info(f"Batch processing complete: {results['processed']} optimized, {results['deleted']} originals deleted")
             
         return results
     

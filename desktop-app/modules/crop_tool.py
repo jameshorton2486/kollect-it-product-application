@@ -11,7 +11,9 @@ The user drags:
 
 The crop area is the rectangle formed by these 4 lines.
 
-UPDATED: Now overwrites original file (with automatic backup to .originals/)
+UPDATED: 
+- Now overwrites original file (with automatic backup to .originals/)
+- Dialog is 15% LARGER (1150x920 instead of 1000x800)
 """
 
 import shutil
@@ -352,6 +354,8 @@ class CropDialog(QDialog):
     - Drag the BOTTOM line to set bottom boundary
 
     BEHAVIOR: Overwrites the original file (backup saved to .originals/)
+    
+    UPDATED: Dialog is 15% LARGER (1150x920 instead of 1000x800)
     """
 
     def __init__(self, image_path: str, parent=None, config: dict = None):
@@ -365,7 +369,11 @@ class CropDialog(QDialog):
         self.config = config or {}
 
         self.setWindowTitle(f"Crop Image - {self.image_path.name}")
-        self.setMinimumSize(1000, 800)
+        
+        # ============================================
+        # 15% LARGER DIALOG: 1000x800 → 1150x920
+        # ============================================
+        self.setMinimumSize(1150, 920)
 
         # Apply Modern Theme
         self.setStyleSheet(ModernPalette.get_stylesheet())
@@ -687,7 +695,7 @@ class CropDialog(QDialog):
 
         scroll_size = self.scroll_area.viewport().size()
         if scroll_size.width() < 100 or scroll_size.height() < 100:
-            scroll_size = QSize(900, 500)
+            scroll_size = QSize(1000, 600)  # Larger default for bigger dialog
 
         img_size = self.original_image.size
 

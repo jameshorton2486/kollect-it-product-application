@@ -73,10 +73,12 @@ from modules.ai_engine import AIEngine  # type: ignore
 from modules.background_remover import BackgroundRemover, check_rembg_installation, REMBG_AVAILABLE  # type: ignore
 from modules.crop_tool import CropDialog  # type: ignore
 from modules.import_wizard import ImportWizard  # type: ignore
-from modules.output_generator import OutputGenerator  # type: ignore
+from modules.output_generator import OutputGenerator
+from modules.website_publisher import WebsitePublisher  # type: ignore
 from modules.config_validator import ConfigValidator  # type: ignore
 from modules.theme_modern import ModernPalette  # type: ignore
-from modules.widgets import DropZone, ImageThumbnail # type: ignore
+from modules.widgets import DropZone, ImageThumbnail
+from modules.help_dialog import show_quick_start # type: ignore
 from modules.app_logger import (  # type: ignore
     logger, log_startup_info, log_config_status, log_function_call,
     log_exception, log_ui_action, log_processing, log_api_call,
@@ -148,7 +150,7 @@ class KollectItApp(QMainWindow):
         super().__init__()
         print("[INIT] Initializing KollectItApp...")
         logger.info("Initializing KollectItApp")
-        
+
         try:
             self.config = self.load_config()
             log_config_status(self.config)
@@ -161,6 +163,7 @@ class KollectItApp(QMainWindow):
         products_root = self.config.get("paths", {}).get("products_root", r"G:\My Drive\Kollect-It\Products")
         self.sku_scanner = SKUScanner(products_root, self.config.get("categories", {}))
         self.output_generator = OutputGenerator(self.config)
+        self.website_publisher = WebsitePublisher(self.config)
         self.last_valuation = None
         self.current_folder = None
         self._temp_dirs = []  # Track temporary directories for cleanup
@@ -176,8 +179,10 @@ class KollectItApp(QMainWindow):
         self.crop_all_btn = None
         self.remove_bg_btn = None
         self.optimize_btn = None
+        self.clear_all_btn = None
         self.upload_btn = None
         self.export_btn = None
+        self.publish_btn = None
         self.title_edit = None
         self.sku_edit = None
         self.category_combo = None
@@ -417,6 +422,14 @@ class KollectItApp(QMainWindow):
         self.optimize_btn.clicked.connect(self.optimize_images)
         img_actions.addWidget(self.optimize_btn)
 
+        # Clear All button
+        self.clear_all_btn = QPushButton("🗑 Clear All")
+        self.clear_all_btn.setObjectName("clearAllBtn")
+        self.clear_all_btn.setProperty("variant", "utility")
+        self.clear_all_btn.setEnabled(False)
+        self.clear_all_btn.clicked.connect(self.clear_all_images)
+        img_actions.addWidget(self.clear_all_btn)
+
         images_layout.addLayout(img_actions)
         left_layout.addWidget(images_group)
 
@@ -621,6 +634,14 @@ class KollectItApp(QMainWindow):
         self.export_btn.clicked.connect(self.export_package)
         actions_layout.addWidget(self.export_btn)
 
+        self.publish_btn = QPushButton("🌐 Publish to Website")
+        self.publish_btn.setObjectName("publishBtn")
+        self.publish_btn.setProperty("variant", "success")
+        self.publish_btn.setEnabled(False)
+        self.publish_btn.setToolTip("Publish product to kollect-it.com as draft")
+        self.publish_btn.clicked.connect(self.publish_to_website)
+        actions_layout.addWidget(self.publish_btn)
+
         right_layout.addLayout(actions_layout)
 
         # Log output
@@ -643,11 +664,11 @@ class KollectItApp(QMainWindow):
         # Delete key - delete selected images
         delete_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self)
         delete_shortcut.activated.connect(self.delete_selected_images)
-        
+
         # Ctrl+A - select all images
         select_all_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
         select_all_shortcut.activated.connect(self.select_all_images)
-        
+
         # Escape - clear selection
         escape_shortcut = QShortcut(QKeySequence(Qt.Key_Escape), self)
         escape_shortcut.activated.connect(self.clear_image_selection)
@@ -707,6 +728,13 @@ class KollectItApp(QMainWindow):
         # Help menu
         help_menu = menubar.addMenu("Help")
 
+        quick_start = QAction("📚 Quick Start Guide", self)
+        quick_start.setShortcut("F1")
+        quick_start.triggered.connect(lambda: show_quick_start(self))
+        help_menu.addAction(quick_start)
+
+        help_menu.addSeparator()
+
         about_action = QAction("About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
@@ -757,7 +785,7 @@ class KollectItApp(QMainWindow):
 
     def on_folder_dropped(self, folder_path: str, append: bool = False):
         """Handle when a folder is dropped or selected.
-        
+
         Args:
             folder_path: Path to the folder containing images
             append: If True, add images to existing set instead of replacing
@@ -766,19 +794,19 @@ class KollectItApp(QMainWindow):
             # Append mode: add images from this folder to existing set
             print(f"[LOAD] Appending images from: {folder_path}")
             logger.info(f"Appending images from folder: {folder_path}")
-            
+
             image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.bmp'}
             new_images = sorted([
                 str(f) for f in Path(folder_path).iterdir()
                 if f.suffix.lower() in image_extensions
             ])
-            
+
             added_count = 0
             for img_path in new_images:
                 if img_path not in self.current_images:
                     self.current_images.append(img_path)
                     added_count += 1
-            
+
             if added_count > 0:
                 self.log(f"Added {added_count} images from {os.path.basename(folder_path)}", "success")
                 self.refresh_image_grid()
@@ -786,7 +814,7 @@ class KollectItApp(QMainWindow):
             else:
                 self.log("No new images to add (duplicates skipped)", "info")
             return
-        
+
         # Normal mode: replace current images with new folder
         self.current_folder = folder_path
         self.log(f"Loaded folder: {os.path.basename(folder_path)}", "success")
@@ -810,7 +838,7 @@ class KollectItApp(QMainWindow):
         """Load and display images from the selected folder."""
         print(f"[LOAD] Loading images from: {folder_path}")
         logger.info(f"Loading images from folder: {folder_path}")
-        
+
         try:
             # Clear existing thumbnails
             while self.image_grid_layout.count():
@@ -825,7 +853,7 @@ class KollectItApp(QMainWindow):
                 f for f in Path(folder_path).iterdir()
                 if f.suffix.lower() in image_extensions
             ])
-            
+
             logger.info(f"Found {len(images)} images")
             print(f"[LOAD] Found {len(images)} images")
 
@@ -855,7 +883,11 @@ class KollectItApp(QMainWindow):
             self.log(f"Loaded {len(images)} images", "info")
             logger.info(f"Successfully loaded {len(images)} images from {folder_path}")
             print(f"[LOAD] ✓ Loaded {len(images)} images")
-            
+
+            # Enable/disable clear all button based on loaded images
+            if self.clear_all_btn:
+                self.clear_all_btn.setEnabled(len(self.current_images) > 0)
+
         except Exception as e:
             error_msg = f"Error loading images: {e}"
             self.log(error_msg, "error")
@@ -872,7 +904,7 @@ class KollectItApp(QMainWindow):
         """Handle single-click selection (clears multi-select, selects only this one)."""
         # Clear multi-select, select only this one
         self.selected_images = [image_path]
-        
+
         # Update selection state for all thumbnails
         for i in range(self.image_grid_layout.count()):
             item = self.image_grid_layout.itemAt(i)
@@ -881,7 +913,7 @@ class KollectItApp(QMainWindow):
                 if isinstance(widget, ImageThumbnail):
                     is_selected = (widget.image_path == image_path)
                     widget.set_selected(is_selected)
-        
+
         self.statusBar().showMessage(f"Selected: {Path(image_path).name}")
 
     def on_thumbnail_ctrl_clicked(self, image_path: str):
@@ -890,14 +922,14 @@ class KollectItApp(QMainWindow):
             self.selected_images.remove(image_path)
         else:
             self.selected_images.append(image_path)
-        
+
         # Update visual state for all thumbnails
         for i in range(self.image_grid_layout.count()):
             item = self.image_grid_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), ImageThumbnail):
                 widget = item.widget()
                 widget.set_selected(widget.image_path in self.selected_images)
-        
+
         count = len(self.selected_images)
         if count > 0:
             self.statusBar().showMessage(f"{count} image(s) selected")
@@ -908,7 +940,7 @@ class KollectItApp(QMainWindow):
         """Delete key handler - remove all selected images with confirmation."""
         if not self.selected_images:
             return
-        
+
         count = len(self.selected_images)
         if count > 1:
             reply = QMessageBox.question(
@@ -919,12 +951,12 @@ class KollectItApp(QMainWindow):
             )
             if reply != QMessageBox.Yes:
                 return
-        
+
         # Remove all selected images
         for img in self.selected_images[:]:
             if img in self.current_images:
                 self.current_images.remove(img)
-        
+
         removed = count
         self.selected_images = []
         self.log(f"Removed {removed} image(s) from set", "info")
@@ -935,28 +967,49 @@ class KollectItApp(QMainWindow):
         """Ctrl+A handler - select all images in the grid."""
         if not self.current_images:
             return
-        
+
         self.selected_images = self.current_images[:]
-        
+
         # Update visual state for all thumbnails
         for i in range(self.image_grid_layout.count()):
             item = self.image_grid_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), ImageThumbnail):
                 item.widget().set_selected(True)
-        
+
         self.statusBar().showMessage(f"Selected all {len(self.selected_images)} images")
 
     def clear_image_selection(self):
         """Escape handler - clear all image selections."""
         self.selected_images = []
-        
+
         # Update visual state for all thumbnails
         for i in range(self.image_grid_layout.count()):
             item = self.image_grid_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), ImageThumbnail):
                 item.widget().set_selected(False)
-        
+
         self.statusBar().showMessage("Selection cleared")
+
+    def clear_all_images(self):
+        """Clear all images from the current view."""
+        if not self.current_images:
+            return
+
+        confirm = QMessageBox.question(
+            self, "Clear All Images",
+            f"Remove all {len(self.current_images)} images from view?\n\n"
+            "This does NOT delete files from disk.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if confirm == QMessageBox.Yes:
+            self.current_images = []
+            self.selected_images = []
+            self.refresh_image_grid()
+            self.log("Cleared all images from view", "info")
+            if self.clear_all_btn:
+                self.clear_all_btn.setEnabled(False)
 
     # ============================================================
     # Feature 1: Delete Individual Images from Set
@@ -979,7 +1032,7 @@ class KollectItApp(QMainWindow):
             if image_path in self.selected_images:
                 self.selected_images.remove(image_path)
             self.log(f"Removed: {Path(image_path).name}", "info")
-        
+
         # Refresh the grid
         self.refresh_image_grid()
         self.statusBar().showMessage(f"{len(self.current_images)} images remaining")
@@ -1004,7 +1057,7 @@ class KollectItApp(QMainWindow):
             thumb.crop_requested.connect(self.crop_image)
             thumb.remove_bg_requested.connect(self.remove_image_background)
             thumb.delete_requested.connect(self.delete_image_from_set)
-            
+
             # Restore selection state if this image was previously selected
             if img_path in self.selected_images:
                 thumb.set_selected(True)
@@ -1117,8 +1170,16 @@ class KollectItApp(QMainWindow):
                         self.log(f"Auto-detected category: {cat_id}", "info")
                         return
 
-    def on_category_changed(self, _index: int):
-        """Handle category selection change."""
+    def on_category_changed(self, _index: Optional[int] = None):
+        """Handle category selection change.
+        _index may be None when invoked programmatically by AI flows.
+        """
+        if _index is None and self.category_combo is not None:
+            try:
+                _index = self.category_combo.currentIndex()
+            except Exception:
+                _index = None
+
         self.update_subcategories()
         if self.current_folder:
             self.generate_sku()
@@ -1140,7 +1201,7 @@ class KollectItApp(QMainWindow):
     def generate_sku(self):
         """Generate a new SKU for the current category."""
         logger.debug("Generating SKU...")
-        
+
         cat_id = self.category_combo.currentData()
         if not cat_id:
             logger.warning("No category selected for SKU generation")
@@ -1150,11 +1211,11 @@ class KollectItApp(QMainWindow):
         try:
             prefix = self.config["categories"][cat_id]["prefix"]
             logger.debug(f"Generating SKU with prefix: {prefix}")
-            
+
             sku = self.sku_scanner.get_next_sku(prefix)
             self.sku_edit.setText(sku)
             self.update_export_button_state()
-            
+
             logger.info(f"Generated SKU: {sku}")
             print(f"[SKU] Generated: {sku}")
             self.log(f"Generated SKU: {sku}", "info")
@@ -1201,18 +1262,18 @@ class KollectItApp(QMainWindow):
         """Open crop dialog for an image - overwrites the original file."""
         print(f"[CROP] Opening crop dialog for: {os.path.basename(image_path)}")
         logger.info(f"Opening crop dialog for: {image_path}")
-        
+
         try:
             dialog = CropDialog(image_path, self, config=self.config)
             # Apply modern theme to crop dialog if it supports it
             if hasattr(dialog, 'setStyleSheet'):
                 dialog.setStyleSheet(ModernPalette.get_stylesheet())
-                
+
             if dialog.exec_() == QDialog.Accepted:
                 self.log(f"✓ Saved: {os.path.basename(image_path)} (original overwritten)", "success")
                 logger.info(f"Image cropped and saved: {image_path}")
                 print(f"[CROP] ✓ Image saved: {os.path.basename(image_path)}")
-                
+
                 # Refresh the image grid to show updated thumbnail
                 if self.current_folder:
                     self.refresh_image_grid()
@@ -1234,7 +1295,7 @@ class KollectItApp(QMainWindow):
         """Remove background from a single image."""
         print(f"[BG-REMOVE] Starting background removal: {os.path.basename(image_path)}")
         logger.info(f"Starting background removal: {image_path}")
-        
+
         try:
             self.log(f"Removing background: {os.path.basename(image_path)}", "info")
             self.progress_bar.setValue(0)
@@ -1245,7 +1306,7 @@ class KollectItApp(QMainWindow):
             bg_color = self.config.get("image_processing", {}).get(
                 "background_removal", {}
             ).get("background_color", "#FFFFFF")
-            
+
             logger.debug(f"BG removal settings: strength={strength}, bg_color={bg_color}")
 
             output_path = remover.remove_background(
@@ -1351,7 +1412,7 @@ class KollectItApp(QMainWindow):
         print(f"[OPTIMIZE] Starting image optimization for: {self.current_folder}")
         logger.info(f"Starting image optimization: {self.current_folder}")
         logger.info(f"Images to optimize: {len(self.current_images)}")
-        
+
         self.log("Starting image optimization...", "info")
         self.status_label.setText("Optimizing images...")
         self.progress_bar.setValue(0)
@@ -1360,9 +1421,10 @@ class KollectItApp(QMainWindow):
             "max_dimension": self.config.get("image_processing", {}).get("max_dimension", 2400),
             "quality": self.config.get("image_processing", {}).get("webp_quality", 88),
             "strip_exif": self.config.get("image_processing", {}).get("strip_exif", True),
-            "output_format": "webp"
+            "output_format": "webp",
+            "delete_originals": True
         }
-        
+
         logger.debug(f"Optimization options: {options}")
 
         self.processing_thread = ProcessingThread(
@@ -1395,7 +1457,7 @@ class KollectItApp(QMainWindow):
 
         logger.info(f"Image optimization complete: {success_count} succeeded, {error_count} failed")
         print(f"[OPTIMIZE] ✓ Complete: {success_count} images processed")
-        
+
         self.log(f"Optimization complete: {success_count} images processed", "success")
 
         if error_count > 0:
@@ -1409,6 +1471,17 @@ class KollectItApp(QMainWindow):
         if processed_folder.exists():
             logger.info(f"Loading processed images from: {processed_folder}")
             self.load_images_from_folder(str(processed_folder))
+            if self.clear_all_btn:
+                self.clear_all_btn.setEnabled(len(self.current_images) > 0)
+
+        # Log deletion summary if provided by processor
+        try:
+            deleted_count = sum(1 for r in results.get("images", []) if r.get("original_deleted"))
+            if deleted_count:
+                logger.info(f"Deleted {deleted_count} original file(s) after optimization")
+                self.log(f"Deleted {deleted_count} original file(s)", "info")
+        except Exception:
+            pass
 
     def on_processing_error(self, error: str):
         """Handle processing errors."""
@@ -1425,7 +1498,7 @@ class KollectItApp(QMainWindow):
         """
         print("[AI-ANALYZE] Starting image analysis and autofill...")
         logger.info("Starting AI analyze and autofill")
-        
+
         if not self.current_images:
             logger.warning("No images loaded for analysis")
             QMessageBox.warning(self, "No Images", "Load a product folder first.")
@@ -1440,7 +1513,7 @@ class KollectItApp(QMainWindow):
             logger.debug("Initializing AIEngine for analysis")
             engine = AIEngine(self.config)
             images = self.current_images[:MAX_AI_IMAGES_ANALYZE]
-            
+
             logger.info(f"Analyzing {len(images)} images (max {MAX_AI_IMAGES_ANALYZE})")
             print(f"[AI-ANALYZE] Sending {len(images)} images to AI...")
 
@@ -1454,10 +1527,10 @@ class KollectItApp(QMainWindow):
 
             categories = self.config.get("categories", {})
             logger.debug(f"Available categories: {list(categories.keys())}")
-            
+
             self.progress_bar.setValue(30)
             QApplication.processEvents()
-            
+
             result = engine.suggest_fields(product_data, categories)
 
             if not result:
@@ -1476,7 +1549,7 @@ class KollectItApp(QMainWindow):
 
             self.progress_bar.setValue(50)
             QApplication.processEvents()
-            
+
             fields_filled = []
 
             # Title
@@ -1496,7 +1569,7 @@ class KollectItApp(QMainWindow):
                     self.log(f"📂 Category: {cat_id}", "info")
                 else:
                     self.log(f"⚠️ Category '{cat_id}' not found in config", "warning")
-            
+
             QApplication.processEvents()
 
             # Subcategory
@@ -1545,19 +1618,19 @@ class KollectItApp(QMainWindow):
                 self.description_edit.setPlainText(result["description"])
                 fields_filled.append("Description")
                 self.log(f"📄 Description: {len(result['description'])} chars", "info")
-            
+
             self.progress_bar.setValue(85)
             QApplication.processEvents()
-            
+
             # SEO fields
             if result.get("seo_title"):
                 self.seo_title_edit.setText(result["seo_title"][:70])
                 fields_filled.append("SEO Title")
-            
+
             if result.get("seo_description"):
                 self.seo_desc_edit.setPlainText(result["seo_description"][:160])
                 fields_filled.append("SEO Description")
-            
+
             keywords = result.get("keywords", [])
             if keywords:
                 if isinstance(keywords, list):
@@ -1576,7 +1649,7 @@ class KollectItApp(QMainWindow):
             low_price = val.get("low", 0)
             high_price = val.get("high", 0)
             confidence = val.get("confidence", "Unknown")
-            
+
             if isinstance(rec_price, (int, float)) and rec_price > 0:
                 self.last_valuation = {
                     "low": low_price,
@@ -1598,7 +1671,7 @@ class KollectItApp(QMainWindow):
             self.progress_bar.setValue(100)
             self.update_export_button_state()
             self.status_label.setText("Analysis complete!")
-            
+
             # Success summary
             self.log(f"✅ AI filled {len(fields_filled)} fields: {', '.join(fields_filled)}", "success")
             self.log("Review and adjust as needed, then Generate Description for final polish", "info")
@@ -1629,7 +1702,7 @@ class KollectItApp(QMainWindow):
         """Generate product description using AI."""
         print("[AI] Starting description generation...")
         logger.info("Starting AI description generation")
-        
+
         if not self.current_images:
             logger.warning("No images loaded for description generation")
             QMessageBox.warning(self, "No Images", "Load a product folder first.")
@@ -1658,7 +1731,7 @@ class KollectItApp(QMainWindow):
                 "origin": self.origin_edit.text(),
                 "images": self.current_images[:MAX_AI_IMAGES_DESCRIPTION]
             }
-            
+
             logger.info(f"Sending {len(product_data['images'])} images to AI")
             print(f"[AI] Sending request with {len(product_data['images'])} images...")
 
@@ -1778,7 +1851,7 @@ class KollectItApp(QMainWindow):
         """Generate AI-powered price research and display guidance."""
         print("[AI] Starting price valuation research...")
         logger.info("Starting AI price valuation")
-        
+
         self.log("Generating price research...", "info")
         self.status_label.setText("Researching prices...")
 
@@ -1802,7 +1875,7 @@ class KollectItApp(QMainWindow):
 
             logger.info(f"Sending valuation request with {len(product_data.get('images', []))} images")
             print(f"[AI] Requesting valuation for: {product_data.get('title', 'Unknown')}")
-            
+
             valuation = engine.generate_valuation(product_data)
             logger.debug(f"Valuation response: {valuation}")
 
@@ -1838,7 +1911,7 @@ class KollectItApp(QMainWindow):
                 logger.warning("Valuation returned no data")
                 print("[AI] ✗ No valuation data returned")
                 self.log("No valuation data received", "warning")
-                
+
         except ValueError as ve:
             logger.error(f"Valuation configuration error: {ve}")
             print(f"[AI] ✗ Config error: {ve}")
@@ -1856,7 +1929,7 @@ class KollectItApp(QMainWindow):
         """Upload processed images to ImageKit."""
         print("[UPLOAD] Starting ImageKit upload...")
         logger.info("Starting ImageKit upload")
-        
+
         if not self.current_images:
             logger.warning("No images to upload")
             QMessageBox.warning(self, "No Images", "Load a product folder first.")
@@ -1908,7 +1981,7 @@ class KollectItApp(QMainWindow):
             for i, img_path in enumerate(self.current_images):
                 print(f"[UPLOAD] {i+1}/{total}: {Path(img_path).name}")
                 logger.debug(f"Uploading: {img_path}")
-                
+
                 result = uploader.upload(img_path, folder)
                 if result and result.get("success"):
                     url = result.get("url")
@@ -1961,14 +2034,143 @@ class KollectItApp(QMainWindow):
             )
             self.export_btn.setEnabled(can_export)
 
+
+    def publish_to_website(self):
+        """Publish product to kollect-it.com as draft."""
+        print("[PUBLISH] Starting website publish...")
+        logger.info("Starting website publish")
+        
+        # Validate required fields
+        validation_errors = []
+        if not self.title_edit.text():
+            validation_errors.append("Missing title")
+        if not self.description_edit.toPlainText():
+            validation_errors.append("Missing description")
+        if not self.uploaded_image_urls:
+            validation_errors.append("No uploaded images - upload to ImageKit first")
+        if not self.category_combo.currentData():
+            validation_errors.append("No category selected")
+        if not self.sku_edit.text():
+            validation_errors.append("No SKU generated")
+        
+        if validation_errors:
+            QMessageBox.warning(
+                self, "Cannot Publish",
+                "Please fix the following:\n\n• " + "\n• ".join(validation_errors)
+            )
+            return
+        
+        # Check publisher configuration
+        if not self.website_publisher.is_configured():
+            QMessageBox.warning(
+                self, "Publisher Not Configured",
+                "PRODUCT_INGEST_API_KEY not set.\n\n"
+                "Add to your .env file:\n"
+                "PRODUCT_INGEST_API_KEY=your-api-key\n\n"
+                "Get this key from your website admin."
+            )
+            return
+        
+        # Confirm publish
+        reply = QMessageBox.question(
+            self, "Publish to Website",
+            f"Publish \"{self.title_edit.text()}\" to kollect-it.com?\n\n"
+            f"SKU: {self.sku_edit.text()}\n"
+            f"Price: ${self.price_spin.value():,.2f}\n"
+            f"Images: {len(self.uploaded_image_urls)}\n\n"
+            "Product will be created as DRAFT for admin review.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        self.log("Publishing to website...", "info")
+        self.status_label.setText("Publishing to website...")
+        QApplication.processEvents()
+        
+        # Build product data
+        product_data = {
+            "title": self.title_edit.text(),
+            "sku": self.sku_edit.text(),
+            "category": self.category_combo.currentData(),
+            "subcategory": self.subcategory_combo.currentText() or None,
+            "description": self.description_edit.toPlainText(),
+            "price": self.price_spin.value(),
+            "condition": self.condition_combo.currentText(),
+            "era": self.era_edit.text() or None,
+            "origin": self.origin_edit.text() or None,
+            "images": [
+                {"url": url, "alt": f"{self.title_edit.text()} - Image {i+1}", "order": i}
+                for i, url in enumerate(self.uploaded_image_urls)
+            ],
+            "seoTitle": self.seo_title_edit.text() or self.title_edit.text(),
+            "seoDescription": self.seo_desc_edit.toPlainText() or self.description_edit.toPlainText()[:160],
+            "seoKeywords": [k.strip() for k in self.seo_keywords_edit.text().split(",") if k.strip()],
+            "last_valuation": self.last_valuation
+        }
+        
+        # Publish
+        try:
+            result = self.website_publisher.publish(product_data)
+            
+            if result.get("success"):
+                admin_url = result.get("admin_url", "")
+                
+                self.log(f"✓ Published to website: {result.get('sku')}", "success")
+                logger.info(f"Published to website: {result}")
+                
+                # Show success dialog
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Published Successfully")
+                msg.setText(
+                    f"Product published as DRAFT!\n\n"
+                    f"SKU: {result.get('sku')}\n"
+                    f"Status: Draft (awaiting review)\n\n"
+                    f"Next: Review and publish in admin panel"
+                )
+                
+                if admin_url:
+                    open_admin_btn = msg.addButton("Open Admin", QMessageBox.ActionRole)
+                
+                new_product_btn = msg.addButton("New Product", QMessageBox.ActionRole)
+                msg.addButton("OK", QMessageBox.AcceptRole)
+                
+                msg.exec_()
+                
+                if admin_url and msg.clickedButton() == open_admin_btn:
+                    import webbrowser
+                    webbrowser.open(admin_url)
+                elif msg.clickedButton() == new_product_btn:
+                    self.reset_form()
+            
+            else:
+                error_msg = result.get("message") or result.get("error", "Unknown error")
+                self.log(f"✗ Publish failed: {error_msg}", "error")
+                logger.error(f"Publish failed: {result}")
+                
+                QMessageBox.warning(
+                    self, "Publish Failed",
+                    f"Could not publish to website:\n\n{error_msg}"
+                )
+        
+        except Exception as e:
+            self.log(f"✗ Publish error: {e}", "error")
+            logger.error(f"Publish exception: {e}")
+            QMessageBox.critical(self, "Error", f"Publish error: {e}")
+        
+        self.status_label.setText("Ready")
+
     def export_package(self):
         """Export product package to files."""
         print("[EXPORT] Starting product export...")
         logger.info("Starting product export")
-        
+
         # Validate required fields with detailed logging
         validation_errors = []
-        
+
         if not self.title_edit.text():
             validation_errors.append("Missing title")
         if not self.description_edit.toPlainText():
@@ -1979,7 +2181,7 @@ class KollectItApp(QMainWindow):
             validation_errors.append("No category selected")
         if not self.sku_edit.text():
             validation_errors.append("No SKU generated")
-            
+
         if validation_errors:
             error_msg = f"Export validation failed: {', '.join(validation_errors)}"
             logger.warning(error_msg)
@@ -1989,10 +2191,10 @@ class KollectItApp(QMainWindow):
 
         category = self.category_combo.currentData()
         sku = self.sku_edit.text()
-        
+
         logger.info(f"Exporting product: SKU={sku}, Category={category}")
         print(f"[EXPORT] Exporting: {sku} ({category})")
-        
+
         self.log("Exporting product package...", "info")
         self.status_label.setText("Exporting package...")
 
@@ -2029,7 +2231,7 @@ class KollectItApp(QMainWindow):
             # Export the package
             logger.debug(f"Product data prepared: {len(product_data.get('images', []))} images")
             print(f"[EXPORT] Calling output_generator.export_package()...")
-            
+
             result = self.output_generator.export_package(product_data)
             logger.debug(f"Export result: {result}")
 
@@ -2087,7 +2289,7 @@ class KollectItApp(QMainWindow):
         """Reset the form for a new product."""
         print("[RESET] Resetting form for new product...")
         logger.info("Resetting form for new product")
-        
+
         self.title_edit.clear()
         self.sku_edit.clear()
         self.description_edit.clear()
