@@ -143,6 +143,12 @@ class UploadThread(QThread):
             uploader = ImageKitUploader(self.config)
             uploaded_urls = []
             total = len(self.images)
+            
+            # Guard against division by zero
+            if total == 0:
+                self.progress.emit(0, "No images to upload")
+                self.finished.emit(uploaded_urls)
+                return
 
             for i, img_path in enumerate(self.images):
                 self.progress.emit(

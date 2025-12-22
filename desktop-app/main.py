@@ -90,6 +90,173 @@ from modules.app_logger import (  # type: ignore
 log_startup_info(VERSION)
 print("[STARTUP] Modules imported successfully")
 
+# =============================================================================
+# PATCH 5: Image Upload Validation Functions
+# =============================================================================
+
+# Maximum file size for upload (10 MB)
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Supported formats for ImageKit
+SUPPORTED_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.tiff', '.bmp'}
+
+
+def validate_image_for_upload(image_path: str) -> tuple[bool, str]:
+    """
+    Validate a single image before upload.
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    path = Path(image_path)
+    
+    # Check file exists
+    if not path.exists():
+        return False, f"File not found: {path.name}"
+    
+    # Check file is readable
+    if not os.access(image_path, os.R_OK):
+        return False, f"Cannot read file: {path.name}"
+    
+    # Check file extension
+    if path.suffix.lower() not in SUPPORTED_FORMATS:
+        return False, f"Unsupported format: {path.suffix}"
+    
+    # Check file size
+    size = path.stat().st_size
+    if size == 0:
+        return False, f"Empty file: {path.name}"
+    if size > MAX_FILE_SIZE:
+        size_mb = size / (1024 * 1024)
+        return False, f"File too large ({size_mb:.1f} MB): {path.name}"
+    
+    # Try to verify it's actually an image
+    try:
+        from PIL import Image
+        with Image.open(image_path) as img:
+            img.verify()
+    except Exception as e:
+        return False, f"Invalid image file: {path.name} ({e})"
+    
+    return True, ""
+
+
+def validate_images_for_upload(image_paths: List[str]) -> tuple[List[str], List[tuple[str, str]]]:
+    """
+    Validate multiple images before upload.
+    
+    Returns:
+        Tuple of (valid_paths, invalid_items)
+        where invalid_items is list of (path, error_message)
+    """
+    valid = []
+    invalid = []
+    
+    for path in image_paths:
+        is_valid, error = validate_image_for_upload(path)
+        if is_valid:
+            valid.append(path)
+        else:
+            invalid.append((path, error))
+    
+    return valid, invalid
+
+
+# =============================================================================
+# PATCH 6: Global Exception Handler
+# =============================================================================
+
+def setup_exception_handling():
+    """
+    Set up global exception handling for the application.
+    Catches unhandled exceptions and shows user-friendly error dialog.
+    """
+    import logging
+    
+    # Create logs directory
+    log_dir = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    
+    # Set up file logging for crashes
+    crash_log_file = log_dir / f"crash_{datetime.now().strftime('%Y%m%d')}.log"
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+        handlers=[
+            logging.FileHandler(crash_log_file, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        """Global exception handler."""
+        # Don't handle KeyboardInterrupt
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        
+        # Log the exception
+        logger.critical(
+            "Unhandled exception",
+            exc_info=(exc_type, exc_value, exc_traceback)
+        )
+        
+        # Format error message
+        error_text = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        
+        # Write to crash log
+        with open(crash_log_file, 'a', encoding='utf-8') as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"CRASH: {datetime.now().isoformat()}\n")
+            f.write(f"{'='*60}\n")
+            f.write(error_text)
+            f.write("\n")
+        
+        # Show error dialog if application is running
+        try:
+            from PyQt5.QtWidgets import QMessageBox, QApplication
+            app = QApplication.instance()
+            if app:
+                # Create a simplified error message for users
+                user_message = (
+                    f"An unexpected error occurred:\n\n"
+                    f"{exc_type.__name__}: {exc_value}\n\n"
+                    f"Error details have been saved to:\n"
+                    f"{crash_log_file}\n\n"
+                    f"Please report this issue with the log file."
+                )
+                
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Kollect-It - Error")
+                msg.setText("An unexpected error occurred.")
+                msg.setInformativeText(str(exc_value))
+                msg.setDetailedText(error_text)
+                msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Close)
+                
+                # Close button exits app, Ok continues (risky but user's choice)
+                result = msg.exec_()
+                
+                if result == QMessageBox.Close:
+                    sys.exit(1)
+        except Exception:
+            # If we can't show dialog, just exit
+            sys.exit(1)
+    
+    # Install the exception hook
+    sys.excepthook = handle_exception
+    
+    logger.info("Global exception handling installed")
+    return logger
+
+
+# Set up global exception handling
+setup_exception_handling()
+
 
 class ProcessingThread(QThread):
     """Background thread for image processing tasks."""
@@ -118,10 +285,18 @@ class ProcessingThread(QThread):
 
             total = len(images)
 
+            # FIX: Check for empty folder before processing
+            if total == 0:
+                self.progress.emit(100, "No images found in folder")
+                self.finished.emit(results)
+                return
+
             for i, img_path in enumerate(images):
+                # FIXED: Safe division - total is guaranteed > 0 here, and use i+1 for proper progress
+                progress_pct = int(((i + 1) / total) * 100)
                 self.progress.emit(
-                    int((i / total) * 100),
-                    f"Processing: {img_path.name}"
+                    progress_pct,
+                    f"Processing: {img_path.name} ({i + 1}/{total})"
                 )
 
                 try:
@@ -136,7 +311,7 @@ class ProcessingThread(QThread):
                         "error": str(e)
                     })
 
-            self.progress.emit(100, "Processing complete!")
+            self.progress.emit(100, f"Processing complete! ({total} images)")
             self.finished.emit(results)
 
         except Exception as e:
@@ -1093,62 +1268,102 @@ class KollectItApp(QMainWindow):
         event.ignore()
 
     def images_drop(self, event):
-        """Handle drop on images area - add images to current set."""
+        """Handle drop on images area - add images to current set.
+        
+        PATCHED: Added proper error handling for file operations.
+        """
         urls = event.mimeData().urls()
         image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif', '.bmp'}
         added = 0
+        errors = []
 
         for url in urls:
             path = url.toLocalFile()
 
-            # If a folder is dropped, process all images in it
-            if os.path.isdir(path):
-                folder_images = [
-                    str(f) for f in Path(path).iterdir()
-                    if f.suffix.lower() in image_extensions
-                ]
-                for img_path in folder_images:
-                    if img_path not in self.current_images:
-                        # Copy to current folder if different location
-                        if self.current_folder and Path(img_path).parent != Path(self.current_folder):
-                            import shutil
-                            dest = Path(self.current_folder) / Path(img_path).name
-                            # Avoid overwriting existing files
-                            if dest.exists():
-                                base = dest.stem
-                                ext = dest.suffix
-                                counter = 1
-                                while dest.exists():
-                                    dest = Path(self.current_folder) / f"{base}_{counter}{ext}"
-                                    counter += 1
-                            shutil.copy2(img_path, dest)
-                            self.current_images.append(str(dest))
-                        else:
-                            self.current_images.append(img_path)
-                        added += 1
-            elif Path(path).suffix.lower() in image_extensions:
-                if path not in self.current_images:
-                    # Copy to current folder if different location
-                    if self.current_folder and Path(path).parent != Path(self.current_folder):
-                        import shutil
-                        dest = Path(self.current_folder) / Path(path).name
-                        # Avoid overwriting existing files
-                        if dest.exists():
-                            base = dest.stem
-                            ext = dest.suffix
-                            counter = 1
-                            while dest.exists():
-                                dest = Path(self.current_folder) / f"{base}_{counter}{ext}"
-                                counter += 1
-                        shutil.copy2(path, dest)
-                        self.current_images.append(str(dest))
-                    else:
-                        self.current_images.append(path)
-                    added += 1
+            try:
+                # If a folder is dropped, process all images in it
+                if os.path.isdir(path):
+                    folder_images = [
+                        str(f) for f in Path(path).iterdir()
+                        if f.suffix.lower() in image_extensions
+                    ]
+                    for img_path in folder_images:
+                        try:
+                            if img_path not in self.current_images:
+                                # Copy to current folder if different location
+                                if self.current_folder and Path(img_path).parent != Path(self.current_folder):
+                                    import shutil
+                                    dest = Path(self.current_folder) / Path(img_path).name
+                                    # Avoid overwriting existing files
+                                    if dest.exists():
+                                        base = dest.stem
+                                        ext = dest.suffix
+                                        counter = 1
+                                        while dest.exists():
+                                            dest = Path(self.current_folder) / f"{base}_{counter}{ext}"
+                                            counter += 1
+                                    # FIX: Wrap file copy in try/except for error handling
+                                    try:
+                                        shutil.copy2(img_path, dest)
+                                        self.current_images.append(str(dest))
+                                        added += 1
+                                    except PermissionError as e:
+                                        errors.append(f"{Path(img_path).name}: Permission denied")
+                                        logger.error(f"Cannot copy {Path(img_path).name}: {e}")
+                                    except OSError as e:
+                                        errors.append(f"{Path(img_path).name}: {e}")
+                                        logger.error(f"Cannot copy {Path(img_path).name}: {e}")
+                                else:
+                                    self.current_images.append(img_path)
+                                    added += 1
+                        except Exception as e:
+                            errors.append(f"{Path(img_path).name}: {e}")
+                            
+                elif Path(path).suffix.lower() in image_extensions:
+                    try:
+                        if path not in self.current_images:
+                            # Copy to current folder if different location
+                            if self.current_folder and Path(path).parent != Path(self.current_folder):
+                                import shutil
+                                dest = Path(self.current_folder) / Path(path).name
+                                # Avoid overwriting existing files
+                                if dest.exists():
+                                    base = dest.stem
+                                    ext = dest.suffix
+                                    counter = 1
+                                    while dest.exists():
+                                        dest = Path(self.current_folder) / f"{base}_{counter}{ext}"
+                                        counter += 1
+                                # FIX: Wrap file copy in try/except for error handling
+                                try:
+                                    shutil.copy2(path, dest)
+                                    self.current_images.append(str(dest))
+                                    added += 1
+                                except PermissionError as e:
+                                    errors.append(f"{Path(path).name}: Permission denied")
+                                    logger.error(f"Cannot copy {Path(path).name}: {e}")
+                                except OSError as e:
+                                    errors.append(f"{Path(path).name}: {e}")
+                                    logger.error(f"Cannot copy {Path(path).name}: {e}")
+                            else:
+                                self.current_images.append(path)
+                                added += 1
+                    except Exception as e:
+                        errors.append(f"{Path(path).name}: {e}")
+                        
+            except Exception as e:
+                errors.append(f"Error processing {path}: {e}")
 
+        # Refresh grid if any images were added
         if added > 0:
-            self.log(f"Added {added} image(s) to set", "success")
             self.refresh_image_grid()
+            self.log(f"Added {added} image(s) to set", "success")
+            
+        if errors:
+            self.log(f"Failed to add {len(errors)} image(s)", "warning")
+            # Show first few errors in log
+            for error in errors[:3]:
+                self.log(f"  - {error}", "warning")
 
     def detect_category(self, folder_path: str):
         """Auto-detect category from folder name or contents."""
@@ -1372,7 +1587,11 @@ class KollectItApp(QMainWindow):
         ).get("background_color", "#FFFFFF")
 
         def progress_callback(current, total, filename):
-            progress = int((current / total) * 100)
+            # Guard against division by zero
+            if total == 0:
+                progress = 0
+            else:
+                progress = int((current / total) * 100)
             self.progress_bar.setValue(progress)
             self.status_label.setText(f"Processing {current}/{total}: {filename}")
             QApplication.processEvents()
@@ -1448,7 +1667,7 @@ class KollectItApp(QMainWindow):
             logger.debug(f"Processing progress: {percent}% - {message}")
 
     def on_processing_finished(self, results: dict):
-        """Handle processing completion."""
+        """Handle processing completion - WITH CLEANUP."""
         self.optimize_btn.setEnabled(True)
         self.upload_btn.setEnabled(True)
 
@@ -1483,13 +1702,23 @@ class KollectItApp(QMainWindow):
         except Exception:
             pass
 
+        # FIX: Clean up thread reference to prevent memory leak
+        if self.processing_thread is not None:
+            self.processing_thread.deleteLater()
+            self.processing_thread = None
+
     def on_processing_error(self, error: str):
-        """Handle processing errors."""
+        """Handle processing errors - WITH CLEANUP."""
         self.optimize_btn.setEnabled(True)
         logger.error(f"Processing error: {error}")
         print(f"[OPTIMIZE] ✗ Processing error: {error}")
         self.log(f"Processing error: {error}", "error")
         self.status_label.setText("Error during processing")
+
+        # FIX: Clean up thread reference to prevent memory leak
+        if self.processing_thread is not None:
+            self.processing_thread.deleteLater()
+            self.processing_thread = None
 
     def analyze_and_autofill(self):
         """
@@ -1926,7 +2155,7 @@ class KollectItApp(QMainWindow):
             self.status_label.setText("Ready")
 
     def upload_to_imagekit(self):
-        """Upload processed images to ImageKit."""
+        """Upload processed images to ImageKit - WITH VALIDATION."""
         print("[UPLOAD] Starting ImageKit upload...")
         logger.info("Starting ImageKit upload")
 
@@ -1950,7 +2179,43 @@ class KollectItApp(QMainWindow):
             )
             return
 
-        self.log("Uploading to ImageKit...", "info")
+        # Validate all images before starting upload
+        self.log("Validating images before upload...", "info")
+        valid_images, invalid_images = validate_images_for_upload(self.current_images)
+        
+        if invalid_images:
+            # Show validation errors
+            error_count = len(invalid_images)
+            self.log(f"Found {error_count} invalid image(s)", "warning")
+            
+            for path, error in invalid_images[:5]:  # Show first 5 errors
+                self.log(f"  - {error}", "warning")
+            
+            if not valid_images:
+                QMessageBox.critical(
+                    self, "Upload Failed",
+                    f"No valid images to upload.\n\n"
+                    f"{error_count} image(s) failed validation."
+                )
+                return
+            
+            # Ask user if they want to continue with valid images
+            reply = QMessageBox.question(
+                self, "Validation Warnings",
+                f"{error_count} image(s) have issues and will be skipped.\n"
+                f"{len(valid_images)} image(s) are valid.\n\n"
+                "Continue with valid images only?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply != QMessageBox.Yes:
+                return
+
+        # Use valid_images instead of self.current_images
+        images_to_upload = valid_images
+        
+        self.log(f"Uploading {len(images_to_upload)} images to ImageKit...", "info")
         self.status_label.setText("Uploading to ImageKit...")
         self.progress_bar.setValue(0)
 
@@ -1975,10 +2240,10 @@ class KollectItApp(QMainWindow):
             print(f"[UPLOAD] Target folder: {folder}")
 
             uploaded_urls = []
-            total = len(self.current_images)
+            total = len(images_to_upload)
             logger.info(f"Uploading {total} images")
 
-            for i, img_path in enumerate(self.current_images):
+            for i, img_path in enumerate(images_to_upload):
                 print(f"[UPLOAD] {i+1}/{total}: {Path(img_path).name}")
                 logger.debug(f"Uploading: {img_path}")
 
@@ -1997,7 +2262,11 @@ class KollectItApp(QMainWindow):
                     self.log(f"Failed to upload {Path(img_path).name}: {error_msg}", "error")
                     logger.error(f"Upload failed: {Path(img_path).name} - {error_msg}")
 
-                progress = int(((i + 1) / total) * 100)
+                # Guard against division by zero
+                if total == 0:
+                    progress = 0
+                else:
+                    progress = int(((i + 1) / total) * 100)
                 self.progress_bar.setValue(progress)
                 self.status_label.setText(f"Uploading {i + 1}/{total}...")
                 QApplication.processEvents()
@@ -2473,8 +2742,12 @@ class KollectItApp(QMainWindow):
         dialog.exec_()
 
     def save_settings_from_dialog(self, dialog):
-        """Save settings from the settings dialog."""
-        # Update config
+        """Save settings from the settings dialog - WITH SAFETY CHECKS."""
+        
+        # FIX: Guard against None widgets
+        # This can happen if dialog setup failed partway through
+        
+        # Ensure config sections exist
         if "api" not in self.config:
             self.config["api"] = {}
         if "imagekit" not in self.config:
@@ -2484,26 +2757,48 @@ class KollectItApp(QMainWindow):
         if "image_processing" not in self.config:
             self.config["image_processing"] = {}
 
-        self.config["api"]["SERVICE_API_KEY"] = self.api_key_edit.text()
-        self.config["api"]["production_url"] = self.prod_url_edit.text()
-        self.config["api"]["use_production"] = self.use_prod_check.isChecked()
+        # API settings - WITH SAFETY CHECKS
+        if self.api_key_edit is not None:
+            self.config["api"]["SERVICE_API_KEY"] = self.api_key_edit.text()
+        
+        if self.prod_url_edit is not None:
+            self.config["api"]["production_url"] = self.prod_url_edit.text()
+        
+        if self.use_prod_check is not None:
+            self.config["api"]["use_production"] = self.use_prod_check.isChecked()
 
-        self.config["imagekit"]["public_key"] = self.ik_public_edit.text()
-        self.config["imagekit"]["private_key"] = self.ik_private_edit.text()
-        self.config["imagekit"]["url_endpoint"] = self.ik_url_edit.text()
+        # ImageKit settings - WITH SAFETY CHECKS
+        if self.ik_public_edit is not None:
+            self.config["imagekit"]["public_key"] = self.ik_public_edit.text()
+        
+        if self.ik_private_edit is not None:
+            self.config["imagekit"]["private_key"] = self.ik_private_edit.text()
+        
+        if self.ik_url_edit is not None:
+            self.config["imagekit"]["url_endpoint"] = self.ik_url_edit.text()
 
-        # API key is read from ANTHROPIC_API_KEY environment variable only, not saved to config
-        self.config["ai"]["model"] = self.ai_model_edit.text()
+        # AI settings - WITH SAFETY CHECKS
+        # Note: API key is read from ANTHROPIC_API_KEY env var only, not saved to config
+        if self.ai_model_edit is not None:
+            self.config["ai"]["model"] = self.ai_model_edit.text()
 
-        self.config["image_processing"]["max_dimension"] = self.max_dim_spin.value()
-        self.config["image_processing"]["webp_quality"] = self.quality_spin.value()
-        self.config["image_processing"]["strip_exif"] = self.strip_exif_check.isChecked()
+        # Image processing settings - WITH SAFETY CHECKS
+        if self.max_dim_spin is not None:
+            self.config["image_processing"]["max_dimension"] = self.max_dim_spin.value()
+        
+        if self.quality_spin is not None:
+            self.config["image_processing"]["webp_quality"] = self.quality_spin.value()
+        
+        if self.strip_exif_check is not None:
+            self.config["image_processing"]["strip_exif"] = self.strip_exif_check.isChecked()
 
         # Save to file
-        self.save_config()
-
-        QMessageBox.information(dialog, "Settings Saved", "Settings have been saved successfully.")
-        dialog.accept()
+        try:
+            self.save_config()
+            QMessageBox.information(dialog, "Settings Saved", "Settings have been saved successfully.")
+            dialog.accept()
+        except Exception as e:
+            QMessageBox.warning(dialog, "Save Error", f"Failed to save settings:\n{e}")
 
     def test_anthropic_key(self):
         """Health check Anthropic API key via a minimal Messages API call."""
@@ -2594,15 +2889,25 @@ class KollectItApp(QMainWindow):
             self.log("Product loaded - ready for processing", "info")
 
     def closeEvent(self, event):
-        """Handle application close event - cleanup temporary directories."""
-        # Clean up temporary directories
+        """Handle application close event - cleanup temporary directories AND threads."""
         import shutil
+        
+        # FIX: Stop any running processing thread
+        if self.processing_thread is not None:
+            if self.processing_thread.isRunning():
+                self.processing_thread.terminate()
+                self.processing_thread.wait(2000)  # Wait up to 2 seconds
+            self.processing_thread.deleteLater()
+            self.processing_thread = None
+        
+        # Clean up temporary directories
         for temp_dir in getattr(self, '_temp_dirs', []):
             try:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
             except Exception:
                 pass
+        
         super().closeEvent(event)
 
 

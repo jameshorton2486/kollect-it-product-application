@@ -212,9 +212,17 @@ class DropZone(QFrame):
             if hasattr(main_window, '_temp_dirs'):
                 main_window._temp_dirs.append(temp_dir)
             for file_path in files:
-                file_name = Path(file_path).name
-                temp_file_path = Path(temp_dir) / file_name
-                shutil.copy2(file_path, temp_file_path)
+                try:
+                    file_name = Path(file_path).name
+                    temp_file_path = Path(temp_dir) / file_name
+                    # FIX: Wrap file copy in try/except for error handling
+                    shutil.copy2(file_path, temp_file_path)
+                except PermissionError as e:
+                    print(f"[ERROR] Cannot copy {Path(file_path).name}: Permission denied - {e}")
+                    continue
+                except OSError as e:
+                    print(f"[ERROR] Cannot copy {Path(file_path).name}: {e}")
+                    continue
             self.folder_dropped.emit(temp_dir)
 
 

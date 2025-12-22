@@ -290,15 +290,24 @@ class AIEngine:
         
         # ========================================
         # Method 3: Direct HTTP WITHOUT SSL verification (last resort)
+        # Only if explicitly allowed in config
         # ========================================
+        # Check config for explicit opt-in to insecure mode
+        allow_insecure = self.config.get("ai", {}).get("allow_insecure_ssl", False)
+        
+        if not allow_insecure:
+            logger.error("SSL verification failed and insecure mode not enabled. "
+                        "Set 'allow_insecure_ssl: true' in config['ai'] to enable (NOT RECOMMENDED).")
+            return {"success": False, "error": "SSL verification failed. Check certificate configuration."}
+        
         try:
-            logger.warning("Trying API call without SSL verification (fallback)")
+            logger.warning("Trying API call without SSL verification (explicitly allowed in config)")
             response = requests.post(
                 self.api_url,
                 headers=headers,
                 json=payload,
                 timeout=120,
-                verify=False  # Disable SSL verification as last resort
+                verify=False  # Only when explicitly opted-in via config
             )
             
             if response.status_code == 200:
