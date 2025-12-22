@@ -78,30 +78,26 @@ from modules.website_publisher import WebsitePublisher  # type: ignore
 from modules.config_validator import ConfigValidator  # type: ignore
 from modules.theme_modern import ModernPalette  # type: ignore
 from modules.widgets import DropZone, ImageThumbnail
+from modules.workers import ProcessingThread  # type: ignore
+from modules.utils import validate_image_for_upload, validate_images_for_upload  # type: ignore
 from modules.help_dialog import show_quick_start # type: ignore
 from modules.app_logger import (  # type: ignore
     logger, log_startup_info, log_config_status, log_function_call,
     log_exception, log_ui_action, log_processing, log_api_call,
     log_image_operation, log_operation, debug_print, info_print,
-    error_print, success_print, warning_print, safe_execute
+    error_print, success_print, warning_print, safe_execute,
+    setup_exception_handling
 )
 
 # Log startup
 log_startup_info(VERSION)
 print("[STARTUP] Modules imported successfully")
 
-# =============================================================================
-# PATCH 5: Image Upload Validation Functions
-# =============================================================================
-
-# Maximum file size for upload (10 MB)
-MAX_FILE_SIZE = 10 * 1024 * 1024
-
-# Supported formats for ImageKit
-SUPPORTED_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.tiff', '.bmp'}
+# Set up global exception handling
+setup_exception_handling()
 
 
-def validate_image_for_upload(image_path: str) -> tuple[bool, str]:
+class KollectItApp(QMainWindow):
     """
     Validate a single image before upload.
     
@@ -256,66 +252,6 @@ def setup_exception_handling():
 
 # Set up global exception handling
 setup_exception_handling()
-
-
-class ProcessingThread(QThread):
-    """Background thread for image processing tasks."""
-
-    progress = pyqtSignal(int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
-
-    def __init__(self, folder_path: str, config: dict, options: dict):
-        super().__init__()
-        self.folder_path = folder_path
-        self.config = config
-        self.options = options
-
-    def run(self):
-        try:
-            processor = ImageProcessor(self.config)
-            results = {"images": [], "errors": []}
-
-            # Get all images in folder
-            image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.tiff', '.bmp'}
-            images = [
-                f for f in Path(self.folder_path).iterdir()
-                if f.suffix.lower() in image_extensions
-            ]
-
-            total = len(images)
-
-            # FIX: Check for empty folder before processing
-            if total == 0:
-                self.progress.emit(100, "No images found in folder")
-                self.finished.emit(results)
-                return
-
-            for i, img_path in enumerate(images):
-                # FIXED: Safe division - total is guaranteed > 0 here, and use i+1 for proper progress
-                progress_pct = int(((i + 1) / total) * 100)
-                self.progress.emit(
-                    progress_pct,
-                    f"Processing: {img_path.name} ({i + 1}/{total})"
-                )
-
-                try:
-                    result = processor.process_image(
-                        str(img_path),
-                        self.options
-                    )
-                    results["images"].append(result)
-                except Exception as e:
-                    results["errors"].append({
-                        "file": img_path.name,
-                        "error": str(e)
-                    })
-
-            self.progress.emit(100, f"Processing complete! ({total} images)")
-            self.finished.emit(results)
-
-        except Exception as e:
-            self.error.emit(str(e))
 
 
 class KollectItApp(QMainWindow):

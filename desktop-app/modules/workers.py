@@ -42,15 +42,18 @@ class ProcessingThread(QThread):
             ]
 
             total = len(images)
+            # FIX: Check for empty folder before processing
             if total == 0:
-                self.progress.emit(100, "No images found to process")
+                self.progress.emit(100, "No images found in folder")
                 self.finished.emit(results)
                 return
 
             for i, img_path in enumerate(images):
+                # Use i+1 to properly show progress (e.g., 1/3, 2/3, 3/3 = 100%)
+                progress_pct = int(((i + 1) / total) * 100)
                 self.progress.emit(
-                    int((i / total) * 100),
-                    f"Processing: {img_path.name}"
+                    progress_pct,
+                    f"Processing: {img_path.name} ({i + 1}/{total})"
                 )
 
                 try:
@@ -65,7 +68,7 @@ class ProcessingThread(QThread):
                         "error": str(e)
                     })
 
-            self.progress.emit(100, "Processing complete!")
+            self.progress.emit(100, f"Processing complete! ({total} images)")
             self.finished.emit(results)
 
         except Exception as e:

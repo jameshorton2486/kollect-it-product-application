@@ -459,3 +459,67 @@ def log_session_summary(stats: dict):
     for key, value in stats.items():
         print(f"  {key}: {value}")
     print("=" * 40 + "\n")
+
+
+# =============================================================================
+# Global Exception Handler
+# =============================================================================
+
+def setup_exception_handling():
+    """
+    Set up global exception handling for the application.
+    Catches unhandled exceptions and shows user-friendly error dialog.
+    """
+    # Create logs directory
+    log_dir = Path(__file__).parent.parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    
+    # Set up file logging for crashes
+    crash_log_file = log_dir / f"crash_{datetime.now().strftime('%Y%m%d')}.log"
+    
+    # Configure separate crash logger
+    crash_logger = logging.getLogger("crash_handler")
+    crash_logger.setLevel(logging.DEBUG)
+    crash_logger.propagate = False
+    
+    # File handler for crashes
+    crash_handler = logging.FileHandler(crash_log_file, encoding='utf-8')
+    crash_handler.setFormatter(
+        logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+    )
+    crash_logger.addHandler(crash_handler)
+    
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        """Global exception handler."""
+        # Don't handle KeyboardInterrupt
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        
+        # Log the exception
+        crash_logger.critical(
+            "Unhandled exception",
+            exc_info=(exc_type, exc_value, exc_traceback)
+        )
+        
+        # Show user-friendly dialog if QApplication exists
+        try:
+            from PyQt5.QtWidgets import QApplication, QMessageBox
+            app = QApplication.instance()
+            if app:
+                error_msg = (
+                    f"An unexpected error occurred:\n\n"
+                    f"{exc_type.__name__}: {exc_value}\n\n"
+                    f"Details have been logged to:\n{crash_log_file}"
+                )
+                QMessageBox.critical(None, "Application Error", error_msg)
+        except Exception:
+            # If we can't show a dialog, at least print to console
+            print(f"CRITICAL: Unhandled exception: {exc_type.__name__}: {exc_value}")
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
+    
+    # Install the exception handler
+    sys.excepthook = handle_exception
