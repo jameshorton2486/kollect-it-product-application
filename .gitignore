@@ -96,3 +96,5 @@ config/user_preferences.json
 config/config.json
 config/sku_state.json
 config/user_preferences.json
+
+/output/
