@@ -324,12 +324,15 @@ class KollectItApp(QMainWindow):
         new_product_btn.setObjectName("newProductBtn")
         new_product_btn.setProperty("variant", "secondary")
         new_product_btn.setMinimumHeight(48)
+        new_product_btn.setToolTip("Import photos and create a new product listing")
         new_product_btn.clicked.connect(self.open_import_wizard)
         left_layout.addWidget(new_product_btn)
 
         # Image preview section
         images_group = QGroupBox("Product Images")
         images_layout = QVBoxLayout(images_group)
+        images_layout.setSpacing(12)
+        images_layout.setContentsMargins(12, 12, 12, 12)
 
         # ============================================================
         # Feature 2: Enable drag-drop to add images to existing set
@@ -352,13 +355,15 @@ class KollectItApp(QMainWindow):
         scroll.setWidget(self.image_grid)
         images_layout.addWidget(scroll)
 
-        # Image action buttons
+        # Image action buttons - grouped for clarity
         img_actions = QHBoxLayout()
+        img_actions.setSpacing(8)
 
         self.crop_all_btn = QPushButton("✂ Crop Selected")
         self.crop_all_btn.setObjectName("cropBtn")
         self.crop_all_btn.setProperty("variant", "utility")
         self.crop_all_btn.setEnabled(False)
+        self.crop_all_btn.setToolTip("Crop the currently selected image(s)")
         self.crop_all_btn.clicked.connect(self.crop_selected_image)
         img_actions.addWidget(self.crop_all_btn)
 
@@ -366,6 +371,7 @@ class KollectItApp(QMainWindow):
         self.remove_bg_btn.setObjectName("removeBgBtn")
         self.remove_bg_btn.setProperty("variant", "utility")
         self.remove_bg_btn.setEnabled(False)
+        self.remove_bg_btn.setToolTip("Remove background from selected image(s) using AI")
         self.remove_bg_btn.clicked.connect(self.remove_background)
         img_actions.addWidget(self.remove_bg_btn)
 
@@ -373,14 +379,19 @@ class KollectItApp(QMainWindow):
         self.optimize_btn.setObjectName("optimizeBtn")
         self.optimize_btn.setProperty("variant", "secondary")
         self.optimize_btn.setEnabled(False)
+        self.optimize_btn.setToolTip("Optimize all images (convert to WebP, compress)")
         self.optimize_btn.clicked.connect(self.optimize_images)
         img_actions.addWidget(self.optimize_btn)
 
-        # Clear All button
+        # Add spacer before destructive action
+        img_actions.addStretch()
+
+        # Clear All button - destructive action visually separated
         self.clear_all_btn = QPushButton("🗑 Clear All")
         self.clear_all_btn.setObjectName("clearAllBtn")
         self.clear_all_btn.setProperty("variant", "utility")
         self.clear_all_btn.setEnabled(False)
+        self.clear_all_btn.setToolTip("Remove all images from the current product")
         self.clear_all_btn.clicked.connect(self.clear_all_images)
         img_actions.addWidget(self.clear_all_btn)
 
@@ -400,9 +411,11 @@ class KollectItApp(QMainWindow):
         # Product Details Tab
         details_tab = QWidget()
         details_layout = QVBoxLayout(details_tab)
+        details_layout.setSpacing(16)
+        details_layout.setContentsMargins(12, 12, 12, 12)
 
         form = QFormLayout()
-        form.setSpacing(16)
+        form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         form.setRowWrapPolicy(QFormLayout.DontWrapRows)
@@ -410,6 +423,7 @@ class KollectItApp(QMainWindow):
         # Title
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("Enter product title...")
+        self.title_edit.setToolTip("Product title (used for SKU generation and display)")
         self.title_edit.textChanged.connect(self.update_export_button_state)
         form.addRow("Title:", self.title_edit)
 
@@ -418,9 +432,11 @@ class KollectItApp(QMainWindow):
         self.sku_edit = QLineEdit()
         self.sku_edit.setReadOnly(True)
         self.sku_edit.setPlaceholderText("Auto-generated")
+        self.sku_edit.setToolTip("Unique product identifier (auto-generated from category and title)")
         sku_layout.addWidget(self.sku_edit)
         self.regenerate_sku_btn = QPushButton("Regen")
         self.regenerate_sku_btn.setFixedWidth(80)
+        self.regenerate_sku_btn.setToolTip("Regenerate SKU based on current category and title")
         self.regenerate_sku_btn.clicked.connect(self.regenerate_sku)
         sku_layout.addWidget(self.regenerate_sku_btn)
         form.addRow("SKU:", sku_layout)
@@ -441,12 +457,14 @@ class KollectItApp(QMainWindow):
         index = self.category_combo.findData(default_cat)
         if index >= 0:
             self.category_combo.setCurrentIndex(index)
+        self.category_combo.setToolTip("Product category (affects SKU generation)")
         self.category_combo.currentIndexChanged.connect(self.on_category_changed)
         form.addRow("Category:", self.category_combo)
 
         # Subcategory
         self.subcategory_combo = QComboBox()
         self.update_subcategories()
+        self.subcategory_combo.setToolTip("Product subcategory (filtered by selected category)")
         form.addRow("Subcategory:", self.subcategory_combo)
 
         # Price
@@ -455,6 +473,7 @@ class KollectItApp(QMainWindow):
         self.price_spin.setRange(0, 999999.99)
         self.price_spin.setPrefix("$ ")
         self.price_spin.setDecimals(2)
+        self.price_spin.setToolTip("Suggested selling price for the product")
         price_layout.addWidget(self.price_spin)
         form.addRow("Suggested Price:", price_layout)
 
@@ -462,16 +481,19 @@ class KollectItApp(QMainWindow):
         self.condition_combo = QComboBox()
         for condition in self.config.get("defaults", {}).get("condition_grades", []):
             self.condition_combo.addItem(condition)
+        self.condition_combo.setToolTip("Product condition grade")
         form.addRow("Condition:", self.condition_combo)
 
         # Era/Period
         self.era_edit = QLineEdit()
         self.era_edit.setPlaceholderText("e.g., WWII, Victorian, 1960s")
+        self.era_edit.setToolTip("Historical era or time period of the item")
         form.addRow("Era/Period:", self.era_edit)
 
         # Origin
         self.origin_edit = QLineEdit()
         self.origin_edit.setPlaceholderText("e.g., United States, Germany")
+        self.origin_edit.setToolTip("Country or region of origin")
         form.addRow("Origin:", self.origin_edit)
 
         details_layout.addLayout(form)
@@ -479,30 +501,39 @@ class KollectItApp(QMainWindow):
         # Description
         desc_group = QGroupBox("Description")
         desc_layout = QVBoxLayout(desc_group)
+        desc_layout.setSpacing(12)
+        desc_layout.setContentsMargins(12, 12, 12, 12)
 
         self.description_edit = QTextEdit()
         self.description_edit.setPlaceholderText("Product description will be generated by AI...")
         self.description_edit.setMinimumHeight(150)
+        self.description_edit.setToolTip("Product description (can be generated automatically using AI)")
         desc_layout.addWidget(self.description_edit)
 
+        # AI action buttons - grouped together
         ai_btn_layout = QHBoxLayout()
+        ai_btn_layout.setSpacing(8)
+        
         self.analyze_images_btn = QPushButton("🔎 Analyze Images")
         self.analyze_images_btn.setObjectName("analyzeImagesBtn")
         self.analyze_images_btn.setProperty("variant", "utility")
+        self.analyze_images_btn.setToolTip("Analyze images to auto-fill product details (title, category, era)")
         self.analyze_images_btn.clicked.connect(self.analyze_and_autofill)
         ai_btn_layout.addWidget(self.analyze_images_btn)
+        
         self.generate_desc_btn = QPushButton("✨ Generate with AI")
         self.generate_desc_btn.setObjectName("generateDescBtn")
         self.generate_desc_btn.setProperty("variant", "secondary")
+        self.generate_desc_btn.setToolTip("Generate product description using AI analysis of images")
         self.generate_desc_btn.clicked.connect(self.generate_description)
         ai_btn_layout.addWidget(self.generate_desc_btn)
 
         self.generate_valuation_btn = QPushButton("💰 Price Research")
         self.generate_valuation_btn.setObjectName("generateValuationBtn")
         self.generate_valuation_btn.setProperty("variant", "secondary")
+        self.generate_valuation_btn.setToolTip("Research and suggest pricing based on similar items")
         self.generate_valuation_btn.clicked.connect(self.generate_valuation)
         ai_btn_layout.addWidget(self.generate_valuation_btn)
-        ai_btn_layout.setSpacing(12)
         desc_layout.addLayout(ai_btn_layout)
         desc_layout.addSpacing(6)
 
@@ -511,34 +542,44 @@ class KollectItApp(QMainWindow):
 
         # SEO Tab
         seo_tab = QWidget()
-        seo_layout = QFormLayout(seo_tab)
-        seo_layout.setSpacing(16)
-        seo_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        seo_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        seo_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        seo_layout = QVBoxLayout(seo_tab)
+        seo_layout.setContentsMargins(12, 12, 12, 12)
+        seo_form = QFormLayout()
+        seo_form.setSpacing(12)
+        seo_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        seo_form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        seo_form.setRowWrapPolicy(QFormLayout.DontWrapRows)
 
         self.seo_title_edit = QLineEdit()
         self.seo_title_edit.setPlaceholderText("SEO-optimized title")
-        seo_layout.addRow("SEO Title:", self.seo_title_edit)
+        self.seo_title_edit.setToolTip("Search engine optimized title (50-60 characters recommended)")
+        seo_form.addRow("SEO Title:", self.seo_title_edit)
 
         self.seo_desc_edit = QTextEdit()
         self.seo_desc_edit.setMaximumHeight(100)
         self.seo_desc_edit.setPlaceholderText("Meta description (160 chars)")
-        seo_layout.addRow("Meta Description:", self.seo_desc_edit)
+        self.seo_desc_edit.setToolTip("Meta description for search engines (150-160 characters)")
+        seo_form.addRow("Meta Description:", self.seo_desc_edit)
 
         self.seo_keywords_edit = QLineEdit()
         self.seo_keywords_edit.setPlaceholderText("keyword1, keyword2, keyword3")
-        seo_layout.addRow("Keywords:", self.seo_keywords_edit)
+        self.seo_keywords_edit.setToolTip("Comma-separated keywords for SEO")
+        seo_form.addRow("Keywords:", self.seo_keywords_edit)
+        
+        seo_layout.addLayout(seo_form)
+        seo_layout.addStretch()
 
         tabs.addTab(seo_tab, "SEO")
 
         # Settings Tab
         settings_tab = QWidget()
-        settings_layout = QFormLayout(settings_tab)
-        settings_layout.setSpacing(16)
-        settings_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        settings_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        settings_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        settings_layout = QVBoxLayout(settings_tab)
+        settings_layout.setContentsMargins(12, 12, 12, 12)
+        settings_form = QFormLayout()
+        settings_form.setSpacing(12)
+        settings_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        settings_form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        settings_form.setRowWrapPolicy(QFormLayout.DontWrapRows)
 
         self.bg_removal_check = QCheckBox("Enable AI Background Removal")
         self.bg_removal_check.setChecked(
@@ -546,38 +587,49 @@ class KollectItApp(QMainWindow):
             .get("background_removal", {})
             .get("enabled", True)
         )
-        settings_layout.addRow(self.bg_removal_check)
+        self.bg_removal_check.setToolTip("Automatically remove backgrounds from product images using AI")
+        settings_form.addRow(self.bg_removal_check)
 
         self.bg_strength_slider = QSlider(Qt.Horizontal)
         self.bg_strength_slider.setRange(1, 100)
         self.bg_strength_slider.setValue(80)
-        settings_layout.addRow("BG Removal Strength:", self.bg_strength_slider)
+        self.bg_strength_slider.setToolTip("Adjust background removal intensity (higher = more aggressive)")
+        settings_form.addRow("BG Removal Strength:", self.bg_strength_slider)
+        
+        settings_layout.addLayout(settings_form)
+        settings_layout.addStretch()
 
         tabs.addTab(settings_tab, "Settings")
 
         right_layout.addWidget(tabs)
 
-        # Progress section
+        # Progress section - improved spacing
         progress_group = QGroupBox("Progress")
         progress_layout = QVBoxLayout(progress_group)
+        progress_layout.setSpacing(8)
+        progress_layout.setContentsMargins(12, 12, 12, 12)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
+        self.progress_bar.setMinimumHeight(24)
         progress_layout.addWidget(self.progress_bar)
 
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY};")
+        self.status_label.setStyleSheet(f"color: {ModernPalette.TEXT_SECONDARY}; padding: 4px 0px;")
+        self.status_label.setWordWrap(True)
         progress_layout.addWidget(self.status_label)
 
         right_layout.addWidget(progress_group)
 
-        # Action buttons
+        # Primary action buttons - clearly grouped
         actions_layout = QHBoxLayout()
+        actions_layout.setSpacing(12)
 
         self.upload_btn = QPushButton("☁ Upload to ImageKit")
         self.upload_btn.setObjectName("uploadBtn")
         self.upload_btn.setProperty("variant", "secondary")
         self.upload_btn.setEnabled(False)
+        self.upload_btn.setToolTip("Upload images to ImageKit CDN for fast delivery")
         self.upload_btn.clicked.connect(self.upload_to_imagekit)
         actions_layout.addWidget(self.upload_btn)
 
@@ -585,6 +637,7 @@ class KollectItApp(QMainWindow):
         self.export_btn.setObjectName("exportBtn")
         self.export_btn.setProperty("variant", "primary")
         self.export_btn.setEnabled(False)
+        self.export_btn.setToolTip("Export product data and images as a package (JSON or DOCX)")
         self.export_btn.clicked.connect(self.export_package)
         actions_layout.addWidget(self.export_btn)
 
@@ -601,11 +654,13 @@ class KollectItApp(QMainWindow):
         # Log output
         log_group = QGroupBox("Activity Log")
         log_layout = QVBoxLayout(log_group)
+        log_layout.setContentsMargins(12, 12, 12, 12)
 
         self.log_output = QTextEdit()
         self.log_output.setObjectName("activityLog")
         self.log_output.setReadOnly(True)
         self.log_output.setMaximumHeight(150)
+        self.log_output.setToolTip("Application activity and processing logs")
         log_layout.addWidget(self.log_output)
 
         right_layout.addWidget(log_group)
@@ -626,6 +681,25 @@ class KollectItApp(QMainWindow):
         # Escape - clear selection
         escape_shortcut = QShortcut(QKeySequence(Qt.Key_Escape), self)
         escape_shortcut.activated.connect(self.clear_image_selection)
+
+        # ============================================================
+        # Phase 4: Set Tab Order for Keyboard Navigation
+        # ============================================================
+        # Tab order: Title -> Category -> Subcategory -> Price -> Condition -> Era -> Origin
+        # -> Description -> Action buttons
+        if self.title_edit and self.category_combo and self.subcategory_combo:
+            self.setTabOrder(self.title_edit, self.category_combo)
+            self.setTabOrder(self.category_combo, self.subcategory_combo)
+            if self.price_spin:
+                self.setTabOrder(self.subcategory_combo, self.price_spin)
+            if self.condition_combo:
+                self.setTabOrder(self.price_spin, self.condition_combo)
+            if self.era_edit:
+                self.setTabOrder(self.condition_combo, self.era_edit)
+            if self.origin_edit:
+                self.setTabOrder(self.era_edit, self.origin_edit)
+            if self.description_edit:
+                self.setTabOrder(self.origin_edit, self.description_edit)
 
     def setup_menu(self):
         """Set up the application menu bar."""
@@ -2668,7 +2742,10 @@ class KollectItApp(QMainWindow):
             self.log("Product loaded - ready for processing", "info")
 
     def closeEvent(self, event):
-        """Handle application close event - cleanup temporary directories AND threads."""
+        """
+        Handle application close event - cleanup temporary directories AND threads.
+        Phase 5: Enhanced cleanup with logging and error handling.
+        """
         import shutil
         
         # FIX: Stop any running processing thread
@@ -2679,13 +2756,22 @@ class KollectItApp(QMainWindow):
             self.processing_thread.deleteLater()
             self.processing_thread = None
         
+        # Phase 5: Enhanced cleanup with logging
         # Clean up temporary directories
-        for temp_dir in getattr(self, '_temp_dirs', []):
+        temp_dirs = getattr(self, '_temp_dirs', [])
+        if temp_dirs:
+            logger.info(f"Cleaning up {len(temp_dirs)} temporary directory(ies)")
+        
+        for temp_dir in temp_dirs:
             try:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
-            except Exception:
-                pass
+                    logger.debug(f"Cleaned up temp directory: {temp_dir}")
+            except Exception as e:
+                # Phase 5: Log cleanup failures but don't block exit
+                error_msg = f"Failed to clean up temp directory {temp_dir}: {e}"
+                logger.warning(error_msg, exc_info=True)
+                # Don't block exit on cleanup failure
         
         super().closeEvent(event)
 

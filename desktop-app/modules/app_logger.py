@@ -4,6 +4,7 @@ Comprehensive logging with file and console output, decorators, and utilities.
 """
 
 import logging
+import logging.handlers
 import sys
 import os
 import traceback
@@ -86,8 +87,14 @@ def setup_logger(name: str = "KollectIt", level: int = logging.DEBUG) -> logging
     console_handler.setFormatter(console_format)
     logger.addHandler(console_handler)
     
-    # File handler (detailed, UTF-8 for file)
-    file_handler = logging.FileHandler(LOG_FILE, encoding='utf-8')
+    # File handler with rotation (10MB max, keep 5 backups)
+    # Phase 5: Rotating file handler to prevent log files from growing too large
+    file_handler = logging.handlers.RotatingFileHandler(
+        LOG_FILE,
+        maxBytes=10 * 1024 * 1024,  # 10 MB
+        backupCount=5,
+        encoding='utf-8'
+    )
     file_handler.setLevel(logging.DEBUG)
     file_format = logging.Formatter(
         '%(asctime)s | %(levelname)-8s | %(name)s.%(funcName)s:%(lineno)d | %(message)s',

@@ -4,12 +4,17 @@ Workers Module
 Background processing threads for the Kollect-It Product Manager.
 """
 
+import logging
+import traceback
 from pathlib import Path
 from typing import Dict, Any
 
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from .image_processor import ImageProcessor
+
+# Phase 5: Centralized logger for thread errors
+logger = logging.getLogger("KollectIt.workers")
 
 
 # Supported image extensions
@@ -72,6 +77,9 @@ class ProcessingThread(QThread):
             self.finished.emit(results)
 
         except Exception as e:
+            # Phase 5: Enhanced thread error logging
+            error_msg = f"ProcessingThread error: {str(e)}"
+            logger.error(error_msg, exc_info=True)
             self.error.emit(str(e))
 
 
@@ -117,6 +125,9 @@ class BackgroundRemovalThread(QThread):
             self.finished.emit(results)
 
         except Exception as e:
+            # Phase 5: Enhanced thread error logging
+            error_msg = f"BackgroundRemovalThread error: {str(e)}"
+            logger.error(error_msg, exc_info=True)
             self.error.emit(str(e))
 
 
@@ -168,4 +179,7 @@ class UploadThread(QThread):
             self.finished.emit(uploaded_urls)
 
         except Exception as e:
+            # Phase 5: Enhanced thread error logging
+            error_msg = f"UploadThread error: {str(e)}"
+            logger.error(error_msg, exc_info=True)
             self.error.emit(str(e))
